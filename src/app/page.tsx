@@ -135,6 +135,7 @@ export default function HomePage() {
 
   // Simulation State
   const [simBudget, setSimBudget] = useState(1000000000);
+  const [simUnitBudget, setSimUnitBudget] = useState<number>(0);
   const [simMinScore, setSimMinScore] = useState(60);
   const [simMinInsentif, setSimMinInsentif] = useState(0);
   const [simMaxInsentif, setSimMaxInsentif] = useState<string>('');
@@ -863,7 +864,14 @@ export default function HomePage() {
                   </div>
                   <div className="field" style={{ flex: 1 }}>
                     <label>Budget insentif unit (Rp)</label>
-                    <input type="text" value={rupiah(simBudget)} disabled style={{ background: '#f6f8fb' }} />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={selectedUnit === 'all' ? rupiah(simBudget) : formatNumberInput(simUnitBudget)}
+                      onChange={(e) => setSimUnitBudget(parseNumberInput(e.target.value))}
+                      disabled={selectedUnit === 'all'}
+                      style={selectedUnit === 'all' ? { background: '#f6f8fb' } : {}}
+                    />
                   </div>
                   <div className="field full">
                     <label>Metode Distribusi</label>

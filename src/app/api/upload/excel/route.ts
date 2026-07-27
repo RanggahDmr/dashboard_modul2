@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ 
         success: false, 
         message: 'Import failed.', 
-        error: validationResult.error.errors.map(e => e.message).join(', ') 
+        error: validationResult.error.issues.map((e: any) => e.message).join(', ') 
       }, { status: 400 });
     }
 
