@@ -20,10 +20,10 @@ export async function GET(req: NextRequest) {
         COUNT(*) as c, 
         AVG(total_nilai) as s,
         SUM(CASE WHEN total_nilai >= ? THEN 1 ELSE 0 END) as e,
-        AVG(nilai_si_clbk) as avg_si,
-        AVG(nilai_sl) as avg_sl,
-        AVG(nilai_flowrate) as avg_fr,
-        AVG(nilai_full_payment) as avg_fp,
+        AVG(nilai_uk_s1) as avg_si,
+        AVG(nilai_uk_sl) as avg_sl,
+        AVG(nilai_pencapaian_lar_baru) as avg_fr,
+        AVG(nilai_hadir_bayar_full_payment) as avg_fp,
         SUM(CASE WHEN total_nilai < 40 THEN 1 ELSE 0 END) as outlier
       FROM ao_kpi_performances p 
       WHERE p.periode = ? AND ${w.clause}

@@ -18,25 +18,23 @@ export async function recomputeScores(dbPool: Pool): Promise<void> {
     const t_limit = Number(t.tinggi);
     const s_limit = Number(t.sedang);
 
-    // 3. Ambil semua baris performa bulanan
-    const [perfRows] = await connection.query<RowDataPacket[]>("SELECT id, si_clbk, sl, flowrate, full_payment FROM ao_performance_monthly");
+    // 3. Ambil semua baris performa (semua periode)
+    const [perfRows] = await connection.query<RowDataPacket[]>(`
+      SELECT id, nilai_uk_s1, nilai_uk_sl, nilai_pencapaian_lar_baru, nilai_hadir_bayar_full_payment 
+      FROM ao_kpi_performances
+    `);
     
     await connection.beginTransaction();
     for (const row of perfRows) {
-      const score = (Number(row.si_clbk) * w_si) + 
-                    (Number(row.sl) * w_sl) + 
-                    (Number(row.flowrate) * w_fr) + 
-                    (Number(row.full_payment) * w_fp);
+      const score = (Number(row.nilai_uk_s1) * w_si) + 
+                    (Number(row.nilai_uk_sl) * w_sl) + 
+                    (Number(row.nilai_pencapaian_lar_baru) * w_fr) + 
+                    (Number(row.nilai_hadir_bayar_full_payment) * w_fp);
       const roundedScore = Math.round(score * 100) / 100;
-      
-      let kategori = 'Rendah';
-      if (roundedScore >= st_limit) kategori = 'Sangat Tinggi';
-      else if (roundedScore >= t_limit) kategori = 'Tinggi';
-      else if (roundedScore >= s_limit) kategori = 'Sedang';
 
       await connection.query(
-        "UPDATE ao_performance_monthly SET score_akhir = ?, kategori = ? WHERE id = ?",
-        [roundedScore, kategori, row.id]
+        "UPDATE ao_kpi_performances SET total_nilai = ? WHERE id = ?",
+        [roundedScore, row.id]
       );
     }
     await connection.commit();

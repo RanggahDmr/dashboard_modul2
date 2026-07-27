@@ -49,10 +49,10 @@ export async function GET(req: NextRequest) {
       'ao.ao_code': 'p.ao_id',
       'ao.nama': 'p.nama_ao',
       'unit_nama': 'p.nama_unit',
-      'si_clbk': 'p.realisasi_s1',
-      'sl': 'p.realisasi_sl',
-      'flowrate': 'p.realisasi_persen_lar_baru',
-      'full_payment': 'p.persen_hadir_bayar_full_payment',
+      'si_clbk': 'p.nilai_uk_s1',
+      'sl': 'p.nilai_uk_sl',
+      'flowrate': 'p.nilai_pencapaian_lar_baru',
+      'full_payment': 'p.nilai_hadir_bayar_full_payment',
       'score_akhir': 'p.total_nilai',
       'cat': `(${caseSql})`
     };
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
     // Ambil data paginasi
     const dataSql = `
       SELECT 
-        p.id as perf_id, p.ao_id, p.nama_unit as unit_id, p.realisasi_s1 as si_clbk, p.realisasi_sl as sl, p.realisasi_persen_lar_baru as flowrate, p.persen_hadir_bayar_full_payment as full_payment,
+        p.id as perf_id, p.ao_id, p.nama_unit as unit_id, p.nilai_uk_s1 as si_clbk, p.nilai_uk_sl as sl, p.nilai_pencapaian_lar_baru as flowrate, p.nilai_hadir_bayar_full_payment as full_payment,
         p.total_nilai as score_akhir, (${caseSql}) as cat,
         p.ao_id as ao_code, p.nama_ao, p.nama_unit
       FROM ao_kpi_performances p
@@ -86,9 +86,9 @@ export async function GET(req: NextRequest) {
         id: r.ao_id,
         perf_id: r.perf_id,
         ao_code: r.ao_code,
-        nama: r.ao_nama,
+        nama: r.nama_ao,
         unit_id: r.unit_id,
-        unit_nama: r.unit_nama,
+        unit_nama: r.nama_unit,
         si_clbk: Number(r.si_clbk),
         sl: Number(r.sl),
         flowrate: Number(r.flowrate),
@@ -123,19 +123,22 @@ export async function POST(req: NextRequest) {
       if (exist.length > 0) {
         await connection.query(`
           UPDATE ao_kpi_performances 
-          SET nama_ao = ?, nama_unit = ?, realisasi_s1 = ?, realisasi_sl = ?, realisasi_persen_lar_baru = ?, persen_hadir_bayar_full_payment = ?
+          SET nama_ao = ?, nama_unit = ?, nilai_uk_s1 = ?, nilai_uk_sl = ?, nilai_pencapaian_lar_baru = ?, nilai_hadir_bayar_full_payment = ?
           WHERE ao_id = ? AND periode = ?
         `, [nama, unit_id, si_clbk, sl, flowrate, full_payment, ao_code, periode]);
       } else {
         await connection.query(`
           INSERT INTO ao_kpi_performances (
-            periode, ao_id, nama_ao, nama_unit, realisasi_s1, realisasi_sl, realisasi_persen_lar_baru, persen_hadir_bayar_full_payment
+            periode, ao_id, nama_ao, nama_unit, nilai_uk_s1, nilai_uk_sl, nilai_pencapaian_lar_baru, nilai_hadir_bayar_full_payment
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `, [periode, ao_code, nama, unit_id, si_clbk, sl, flowrate, full_payment]);
       }
 
       await connection.commit();
-      // recalculation of total_nilai should ideally happen here but for now just acknowledge success
+      
+      // recalculate total_nilai after inserting/updating manual data
+      await recomputeScores(pool);
+      
       return NextResponse.json({ success: true, message: 'Data AO berhasil ditambahkan/diupdate.' });
     } catch (err: any) {
       await connection.rollback();
