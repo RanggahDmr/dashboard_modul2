@@ -9,8 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "chart.js": "^4.5.1",
     "@prisma/client": "^6.4.1",
+    "chart.js": "^4.5.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.42.2",
     "lucide-react": "^1.27.0",
@@ -36,5 +36,8 @@
     "eslint-config-next": "16.2.12",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
   }
 }
