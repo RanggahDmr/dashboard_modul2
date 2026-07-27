@@ -1,47 +1,197 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
-import Navbar from '@/components/Navbar';
-import SummaryCards from '@/components/SummaryCards';
-import CategoryDistributionChart from '@/components/charts/CategoryDistributionChart';
-import PerformanceTrendChart from '@/components/charts/PerformanceTrendChart';
-import RankingTable from '@/components/RankingTable';
-import UploadModal from '@/components/modals/UploadModal';
-import ConfigModal from '@/components/modals/ConfigModal';
-import SimulationModal from '@/components/modals/SimulationModal';
-import { DashboardSummary, UnitKerja, AOPerformance, CategoryDistribution } from '@/types/ao';
-import { Sparkles, RefreshCw, ShieldCheck, Zap } from 'lucide-react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  Chart as ChartJS,
+  ArcElement,
+  Tooltip,
+  Legend as ChartLegend,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title as ChartTitle
+} from 'chart.js';
+import { Doughnut, Bar, Scatter } from 'react-chartjs-2';
+import {
+  BarChart3,
+  TrendingUp,
+  Scale,
+  Wallet,
+  Settings,
+  FolderGit2,
+  FileText,
+  Wrench,
+  Menu,
+  Download,
+  Play,
+  Save,
+  Plus,
+  Search,
+  Trash2,
+  Edit,
+  X,
+  CheckCircle2,
+  RefreshCw,
+  Upload,
+  Users,
+  Star,
+  Award,
+  Building2,
+  Medal,
+  FileSpreadsheet,
+  ChevronLeft,
+  ChevronRight
+} from 'lucide-react';
+import { UnitKerja } from '@/types/ao';
+
+ChartJS.register(
+  ArcElement,
+  Tooltip,
+  ChartLegend,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ChartTitle
+);
+
+const CATEGORY_COLORS: Record<string, string> = {
+  'Sangat Tinggi': '#1e7a34',
+  'Tinggi': '#4caf50',
+  'Sedang': '#e3a022',
+  'Rendah': '#d94f3d'
+};
+
+function rupiah(n: number | undefined | null): string {
+  const val = Math.round(n || 0);
+  return 'Rp ' + val.toLocaleString('id-ID');
+}
+
+function fmt1(n: number | undefined | null): string {
+  return (Math.round((n || 0) * 10) / 10).toLocaleString('id-ID', {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
+  });
+}
+
+function formatNumberInput(val: number | string | undefined | null): string {
+  if (val === undefined || val === null || val === '') return '';
+  const num = typeof val === 'number' ? val : Number(val.toString().replace(/\D/g, ''));
+  if (isNaN(num)) return '';
+  return num.toLocaleString('id-ID');
+}
+
+function parseNumberInput(str: string): number {
+  const digits = str.replace(/\D/g, '');
+  return digits ? parseInt(digits, 10) : 0;
+}
+
 
 export default function HomePage() {
+  // Navigation & UI State
+  const [activeView, setActiveView] = useState<'ringkasan' | 'param' | 'data'>('ringkasan');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [toastMsg, setToastMsg] = useState('');
+  const [showToast, setShowToast] = useState(false);
+
+  // Global Filters
   const [selectedPeriode, setSelectedPeriode] = useState('2026-06');
   const [selectedUnit, setSelectedUnit] = useState('all');
+  const [units, setUnits] = useState<UnitKerja[]>([]);
 
-  const [summary, setSummary] = useState<DashboardSummary>({
+  // Dashboard Data State
+  const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState({
     totalAoAktif: 0,
     avgScore: 0,
     totalEligible: 0,
     totalUnits: 0,
     eligiblePct: 0,
     topUnit: { nama: 'N/A', avgScore: 0 },
-    periodes: ['2026-06'],
+    periodes: ['2026-06']
   });
-  const [units, setUnits] = useState<UnitKerja[]>([]);
   const [chartsData, setChartsData] = useState<{
-    donut: CategoryDistribution[];
+    donut: any[];
     gauges: { si: number; sl: number; fr: number; fp: number };
+    scatter: any[];
   }>({
     donut: [],
     gauges: { si: 0, sl: 0, fr: 0, fp: 0 },
+    scatter: []
   });
-  const [rankingData, setRankingData] = useState<AOPerformance[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [rankingData, setRankingData] = useState<any[]>([]);
 
-  // Modals state
-  const [isUploadOpen, setIsUploadOpen] = useState(false);
-  const [isConfigOpen, setIsConfigOpen] = useState(false);
-  const [isSimulateOpen, setIsSimulateOpen] = useState(false);
+  // Parameter & Weights State
+  const [weights, setWeights] = useState({ si: 30, sl: 30, fr: 20, fp: 20 });
+  const [thresholds, setThresholds] = useState({
+    sangatTinggi: 90,
+    tinggi: 75,
+    sedang: 60,
+    eligible: 60
+  });
 
+  // Simulation State
+  const [simBudget, setSimBudget] = useState(1000000000);
+  const [simMinScore, setSimMinScore] = useState(60);
+  const [simMinInsentif, setSimMinInsentif] = useState(0);
+  const [simMaxInsentif, setSimMaxInsentif] = useState<string>('');
+  const [simResult, setSimResult] = useState<any>(null);
+  const [simLoading, setSimLoading] = useState(false);
+
+  const simParamsRef = useRef({
+    budget: simBudget,
+    minScore: simMinScore,
+    minInsentif: simMinInsentif,
+    maxInsentif: simMaxInsentif
+  });
+  simParamsRef.current = {
+    budget: simBudget,
+    minScore: simMinScore,
+    minInsentif: simMinInsentif,
+    maxInsentif: simMaxInsentif
+  };
+
+  // Data AO CRUD & Table State
+  const [aoList, setAoList] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [unitFilter, setUnitFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalAoCount, setTotalAoCount] = useState(0);
+  const [sortCol, setSortCol] = useState('ao.ao_code');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  // Upload Excel State
+  const [uploadPeriode, setUploadPeriode] = useState('2026-06');
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(false);
+  const [uploadResult, setUploadResult] = useState('');
+
+  // Add/Edit Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
+  const [editAoId, setEditAoId] = useState<number | null>(null);
+  const [aoForm, setAoForm] = useState({
+    ao_code: '',
+    nama: '',
+    unit_id: '1',
+    si_clbk: 80,
+    sl: 80,
+    flowrate: 80,
+    full_payment: 80
+  });
+
+  const showToastMsg = (msg: string) => {
+    setToastMsg(msg);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+  };
+
+  // 1. Fetch Units
   const fetchUnits = async () => {
     try {
       const res = await fetch('/api/units');
@@ -54,18 +204,77 @@ export default function HomePage() {
     }
   };
 
+  // 2. Fetch Config (Weights & Thresholds)
+  const fetchConfig = async () => {
+    try {
+      const [wRes, tRes] = await Promise.all([
+        fetch('/api/config/weights'),
+        fetch('/api/config/thresholds')
+      ]);
+      if (wRes.ok) {
+        const wData = await wRes.json();
+        setWeights({
+          si: Number(wData.w_si || 30),
+          sl: Number(wData.w_sl || 30),
+          fr: Number(wData.w_fr || 20),
+          fp: Number(wData.w_fp || 20)
+        });
+      }
+      if (tRes.ok) {
+        const tData = await tRes.json();
+        setThresholds({
+          sangatTinggi: Number(tData.sangat_tinggi || 90),
+          tinggi: Number(tData.tinggi || 75),
+          sedang: Number(tData.sedang || 60),
+          eligible: Number(tData.eligible_insentif || 60)
+        });
+        setSimMinScore(Number(tData.eligible_insentif || 60));
+      }
+    } catch (err) {
+      console.error('Failed to load config:', err);
+    }
+  };
+
+  // 3. Run Simulation
+  const runSimulation = useCallback(async () => {
+    setSimLoading(true);
+    try {
+      const res = await fetch('/api/dashboard/simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          budget: simParamsRef.current.budget,
+          minScore: simParamsRef.current.minScore,
+          minInsentif: simParamsRef.current.minInsentif,
+          maxInsentif: simParamsRef.current.maxInsentif ? Number(simParamsRef.current.maxInsentif) : null,
+          unit: selectedUnit,
+          periode: selectedPeriode
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSimResult(data);
+      }
+    } catch (err) {
+      console.error('Error running simulation:', err);
+    } finally {
+      setSimLoading(false);
+    }
+  }, [selectedUnit, selectedPeriode]);
+
+  // 4. Fetch Dashboard Data
   const fetchAllData = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({
         periode: selectedPeriode,
-        unit: selectedUnit,
+        unit: selectedUnit
       });
 
       const [resSummary, resCharts, resRanking] = await Promise.all([
         fetch(`/api/dashboard/summary?${params.toString()}`),
         fetch(`/api/dashboard/charts?${params.toString()}`),
-        fetch(`/api/dashboard/ranking?${params.toString()}&limit=100`),
+        fetch(`/api/dashboard/ranking?${params.toString()}&limit=10`)
       ]);
 
       if (resSummary.ok) {
@@ -76,8 +285,8 @@ export default function HomePage() {
           totalEligible: dataSum.eligibleAO || 0,
           totalUnits: dataSum.totalUnits || 0,
           eligiblePct: dataSum.eligiblePct || 0,
-          topUnit: { nama: 'Unit Unggulan 01', avgScore: dataSum.avgScore || 0 },
-          periodes: dataSum.periodes || ['2026-06'],
+          topUnit: dataSum.topUnit || { nama: 'N/A', avgScore: 0 },
+          periodes: dataSum.periodes || ['2026-06']
         });
       }
 
@@ -86,6 +295,7 @@ export default function HomePage() {
         setChartsData({
           donut: dataCharts.donut || [],
           gauges: dataCharts.gauges || { si: 0, sl: 0, fr: 0, fp: 0 },
+          scatter: dataCharts.scatter || []
         });
       }
 
@@ -93,126 +303,1314 @@ export default function HomePage() {
         const dataRank = await resRanking.json();
         setRankingData(dataRank || []);
       }
+
+      await runSimulation();
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
     } finally {
       setLoading(false);
     }
-  }, [selectedPeriode, selectedUnit]);
+  }, [selectedPeriode, selectedUnit, runSimulation]);
+
+  // 5. Fetch AO Data List (CRUD Table)
+  const fetchAoList = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '20',
+        search: searchQuery,
+        unit: unitFilter,
+        category: categoryFilter,
+        sortCol,
+        sortDir,
+        periode: selectedPeriode
+      });
+      const res = await fetch(`/api/ao?${params.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAoList(data.data || []);
+        setTotalPages(data.totalPages || 1);
+        setTotalAoCount(data.total || 0);
+      }
+    } catch (err) {
+      console.error('Failed to fetch AO list:', err);
+    }
+  }, [page, searchQuery, unitFilter, categoryFilter, sortCol, sortDir, selectedPeriode]);
 
   useEffect(() => {
     fetchUnits();
+    fetchConfig();
   }, []);
 
   useEffect(() => {
     fetchAllData();
   }, [fetchAllData]);
 
-  return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 relative overflow-hidden">
-      {/* Background Decorative Glows */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-tr from-indigo-600/15 via-purple-600/10 to-transparent rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute top-2/3 right-10 w-[400px] h-[400px] bg-gradient-to-tl from-cyan-600/10 via-blue-600/10 to-transparent rounded-full blur-3xl pointer-events-none" />
+  useEffect(() => {
+    if (activeView === 'data') {
+      fetchAoList();
+    }
+  }, [activeView, fetchAoList]);
 
-      {/* Navigation Bar */}
-      <Navbar
-        periodes={summary.periodes}
-        selectedPeriode={selectedPeriode}
-        onSelectPeriode={(p) => setSelectedPeriode(p)}
-        units={units}
-        selectedUnit={selectedUnit}
-        onSelectUnit={(u) => setSelectedUnit(u)}
-        onOpenUpload={() => setIsUploadOpen(true)}
-        onOpenConfig={() => setIsConfigOpen(true)}
-        onOpenSimulate={() => setIsSimulateOpen(true)}
+  // Save Weights
+  const handleSaveWeights = async () => {
+    const total = weights.si + weights.sl + weights.fr + weights.fp;
+    if (Math.abs(total - 100) > 0.01) {
+      showToastMsg('⚠️ Total bobot harus tepat 100%');
+      return;
+    }
+    try {
+      const res = await fetch('/api/config/weights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          w_si: weights.si,
+          w_sl: weights.sl,
+          w_fr: weights.fr,
+          w_fp: weights.fp
+        })
+      });
+      if (res.ok) {
+        showToastMsg('💾 Bobot berhasil disimpan & dihitung ulang!');
+        fetchAllData();
+      } else {
+        const err = await res.json();
+        showToastMsg('❌ Gagal: ' + (err.error || 'Terjadi kesalahan'));
+      }
+    } catch (err) {
+      showToastMsg('❌ Gagal menyimpan bobot');
+    }
+  };
+
+  // Save Thresholds
+  const handleSaveThresholds = async () => {
+    try {
+      const res = await fetch('/api/config/thresholds', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sangat_tinggi: thresholds.sangatTinggi,
+          tinggi: thresholds.tinggi,
+          sedang: thresholds.sedang,
+          eligible_insentif: thresholds.eligible
+        })
+      });
+      if (res.ok) {
+        showToastMsg('💾 Klasifikasi berhasil disimpan!');
+        fetchAllData();
+      } else {
+        const err = await res.json();
+        showToastMsg('❌ Gagal: ' + (err.error || 'Terjadi kesalahan'));
+      }
+    } catch (err) {
+      showToastMsg('❌ Gagal menyimpan klasifikasi');
+    }
+  };
+
+  // Upload Excel Handler
+  const handleUploadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadFile) {
+      showToastMsg('⚠️ Pilih file Excel terlebih dahulu');
+      return;
+    }
+    setUploadProgress(true);
+    setUploadResult('');
+    const formData = new FormData();
+    formData.append('file', uploadFile);
+    formData.append('periode', uploadPeriode);
+
+    try {
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      setUploadProgress(false);
+      if (res.ok) {
+        setUploadResult(`✅ Sukses! ${data.processed || 0} data AO berhasil diproses dan dihitung ulang.`);
+        showToastMsg('🚀 Upload dan recompute berhasil!');
+        fetchAllData();
+        if (activeView === 'data') fetchAoList();
+      } else {
+        setUploadResult(`❌ Gagal: ${data.error || 'Terjadi kesalahan saat upload'}`);
+      }
+    } catch (err: any) {
+      setUploadProgress(false);
+      setUploadResult(`❌ Error: ${err.message || 'Gagal terhubung ke server'}`);
+    }
+  };
+
+  // Handle Sort Table
+  const handleSort = (col: string) => {
+    if (sortCol === col) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortCol(col);
+      setSortDir('asc');
+    }
+  };
+
+  // Handle Delete AO
+  const handleDeleteAo = async (id: number, nama: string) => {
+    if (!confirm(`Hapus data AO "${nama}"?`)) return;
+    try {
+      const res = await fetch(`/api/ao?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        showToastMsg('🗑️ AO berhasil dihapus');
+        fetchAoList();
+        fetchAllData();
+      } else {
+        showToastMsg('❌ Gagal menghapus AO');
+      }
+    } catch (err) {
+      showToastMsg('❌ Terjadi kesalahan');
+    }
+  };
+
+  // Open Modal Add/Edit
+  const openAddModal = () => {
+    setModalMode('add');
+    setEditAoId(null);
+    setAoForm({
+      ao_code: `AO${Math.floor(1000 + Math.random() * 9000)}`,
+      nama: '',
+      unit_id: units[0]?.id ? units[0].id.toString() : '1',
+      si_clbk: 80,
+      sl: 80,
+      flowrate: 80,
+      full_payment: 80
+    });
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (ao: any) => {
+    setModalMode('edit');
+    setEditAoId(ao.id || ao.perf_id);
+    setAoForm({
+      ao_code: ao.ao_code || '',
+      nama: ao.nama || '',
+      unit_id: ao.unit_id ? ao.unit_id.toString() : '1',
+      si_clbk: Number(ao.si_clbk) || 0,
+      sl: Number(ao.sl) || 0,
+      flowrate: Number(ao.flowrate) || 0,
+      full_payment: Number(ao.full_payment) || 0
+    });
+    setIsModalOpen(true);
+  };
+
+  // Submit Modal Form
+  const handleModalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/ao', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...aoForm, unit_id: Number(aoForm.unit_id), periode: selectedPeriode })
+      });
+      if (res.ok) {
+        setIsModalOpen(false);
+        showToastMsg(modalMode === 'add' ? '✅ AO baru berhasil ditambahkan' : '✅ AO berhasil diperbarui');
+        fetchAoList();
+        fetchAllData();
+      } else {
+        const err = await res.json();
+        showToastMsg('❌ Gagal: ' + (err.error || 'Terjadi kesalahan'));
+      }
+    } catch (err) {
+      showToastMsg('❌ Gagal menyimpan AO');
+    }
+  };
+
+  // Chart Data Constructions
+  const donutLabels = chartsData.donut.map(d => d.cat || d.kategori || 'N/A');
+  const donutCounts = chartsData.donut.map(d => Number(d.c || d.count) || 0);
+  const donutColors = donutLabels.map(cat => CATEGORY_COLORS[cat] || '#2b6fb3');
+
+  const gaugeList = [
+    { label: 'SI/CLBK', val: chartsData.gauges.si, weight: `${Math.round(weights.si)}%`, color: '#1e7a34' },
+    { label: 'SL', val: chartsData.gauges.sl, weight: `${Math.round(weights.sl)}%`, color: '#2b6fb3' },
+    { label: 'Flowrate', val: chartsData.gauges.fr, weight: `${Math.round(weights.fr)}%`, color: '#e3a022' },
+    { label: 'Hadir Bayar Full Payment', val: chartsData.gauges.fp, weight: `${Math.round(weights.fp)}%`, color: '#0f7c8a' }
+  ];
+
+  const totalWeightSum = weights.si + weights.sl + weights.fr + weights.fp;
+
+  return (
+    <div className="app">
+      {/* Sidebar Overlay */}
+      <div
+        className={`sidebar-overlay ${sidebarOpen ? 'show' : ''}`}
+        onClick={() => setSidebarOpen(false)}
       />
 
-      {/* Main Dashboard Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10 space-y-8">
-        {/* Welcome Banner */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-indigo-950/40 p-6 rounded-3xl border border-slate-800/80 shadow-2xl backdrop-blur-md"
-        >
+      {/* Sidebar */}
+      <aside className={`sidebar ${sidebarOpen ? 'show' : ''}`} id="sidebar">
+        <div className="brand">
+          <div className="brand-badge">PNM</div>
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold mb-2">
-              <Zap className="w-3.5 h-3.5 fill-current" />
-              <span>Executive Performance Center</span>
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-2.5">
-              Monitoring & Evaluasi Kinerja AO
-            </h2>
-            <p className="text-sm font-medium text-slate-400 mt-1">
-              Periode Laporan: <span className="text-indigo-300 font-bold">{selectedPeriode}</span> • {selectedUnit === 'all' ? 'Seluruh Kantor Cabang / Unit Kerja' : `Unit Kerja ID #${selectedUnit}`}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={fetchAllData}
-              disabled={loading}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 shadow-md transition-all active:scale-95 disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 text-indigo-400 ${loading ? 'animate-spin' : ''}`} />
-              <span>{loading ? 'Memuat Data...' : 'Segarkan Data'}</span>
-            </button>
-          </div>
-        </motion.div>
-
-        {/* KPI Summary Cards */}
-        <section>
-          <SummaryCards summary={summary} loading={loading} />
-        </section>
-
-        {/* Charts Section (Donut & Gauges Bar) */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <CategoryDistributionChart data={chartsData.donut} loading={loading} />
-          <PerformanceTrendChart gauges={chartsData.gauges} loading={loading} />
-        </section>
-
-        {/* Ranking Table Section */}
-        <section>
-          <RankingTable data={rankingData} loading={loading} onRefresh={fetchAllData} />
-        </section>
-      </main>
-
-      {/* Footer */}
-      <footer className="w-full border-t border-slate-800/80 bg-slate-950/80 py-8 px-4 mt-12 text-center text-xs font-medium text-slate-400">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-indigo-400" />
-            <span className="font-bold text-slate-300">AO Performance Pro</span>
-            <span>— Built with Next.js 15, TypeScript & Tailwind CSS</span>
-          </div>
-          <div className="flex items-center gap-4 text-slate-500 font-semibold">
-            <span>© 2026 Executive Dashboard Modul 2</span>
-            <span className="flex items-center gap-1 text-emerald-400">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              Laragon Ready
-            </span>
+            <div className="brand-name">mekaar</div>
+            <div className="brand-sub">AO Performance Dashboard</div>
           </div>
         </div>
-      </footer>
 
-      {/* Interactive Modals */}
-      <UploadModal
-        isOpen={isUploadOpen}
-        onClose={() => setIsUploadOpen(false)}
-        onSuccess={fetchAllData}
-      />
-      <ConfigModal
-        isOpen={isConfigOpen}
-        onClose={() => setIsConfigOpen(false)}
-        onSuccess={fetchAllData}
-      />
-      <SimulationModal
-        isOpen={isSimulateOpen}
-        onClose={() => setIsSimulateOpen(false)}
-        selectedPeriode={selectedPeriode}
-        selectedUnit={selectedUnit}
-      />
+        <div className="nav-group-label">Utama</div>
+        <div
+          className={`nav-item ${activeView === 'ringkasan' ? 'active' : ''}`}
+          onClick={() => { setActiveView('ringkasan'); setSidebarOpen(false); }}
+        >
+          <span className="ico"><BarChart3 className="w-4 h-4 text-emerald-400" /></span> Ringkasan Eksekutif
+        </div>
+        <div className="nav-item soon">
+          <span className="ico"><TrendingUp className="w-4 h-4" /></span> Kinerja AO <span className="soon-tag">segera</span>
+        </div>
+        <div className="nav-item soon">
+          <span className="ico"><Scale className="w-4 h-4" /></span> Efisiensi &amp; Perbandingan <span className="soon-tag">segera</span>
+        </div>
+        <div className="nav-item soon">
+          <span className="ico"><Wallet className="w-4 h-4" /></span> Anggaran Insentif <span className="soon-tag">segera</span>
+        </div>
+
+        <div className="nav-group-label">Data &amp; Konfigurasi</div>
+        <div
+          className={`nav-item ${activeView === 'param' ? 'active' : ''}`}
+          onClick={() => { setActiveView('param'); setSidebarOpen(false); }}
+        >
+          <span className="ico"><Settings className="w-4 h-4 text-blue-400" /></span> Parameter &amp; Bobot KPI
+        </div>
+        <div
+          className={`nav-item ${activeView === 'data' ? 'active' : ''}`}
+          onClick={() => { setActiveView('data'); setSidebarOpen(false); }}
+        >
+          <span className="ico"><FolderGit2 className="w-4 h-4 text-amber-400" /></span> Data AO &amp; Assignment
+        </div>
+        <div className="nav-item soon">
+          <span className="ico"><FileText className="w-4 h-4" /></span> Laporan &amp; Export <span className="soon-tag">segera</span>
+        </div>
+        <div className="nav-item soon">
+          <span className="ico"><Wrench className="w-4 h-4" /></span> Pengaturan <span className="soon-tag">segera</span>
+        </div>
+
+        <div className="sidebar-footer">
+          <b>Manajemen Pusat</b>
+          Administrator · Data simulasi/dummy
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <div className="main">
+        {/* TOPBAR */}
+        <div className="topbar">
+          <div className="topbar-left">
+            <button
+              className="btn btn-ghost d-mobile"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Toggle Menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div>
+              <h1 id="page-title">AO Account Assignment Performance Score Dashboard</h1>
+              <div className="sub" id="page-sub">Simulasi Kinerja, Insentif &amp; Efisiensi</div>
+            </div>
+          </div>
+
+          <div className="topbar-controls" id="global-filters">
+            <div className="field">
+              <label>Periode</label>
+              <select
+                value={selectedPeriode}
+                onChange={(e) => setSelectedPeriode(e.target.value)}
+              >
+                <option value="2026-06">Juni 2026</option>
+                <option value="2026-05" disabled>Mei 2026 (segera hadir)</option>
+              </select>
+            </div>
+            <div className="field">
+              <label>Unit Kerja</label>
+              <select
+                value={selectedUnit}
+                onChange={(e) => setSelectedUnit(e.target.value)}
+              >
+                <option value="all">Semua Unit</option>
+                {units.map((u) => (
+                  <option key={u.id} value={u.id.toString()}>{u.nama}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label>&nbsp;</label>
+              <button
+                className="btn btn-primary"
+                onClick={() => showToastMsg('⬇ Mengekspor laporan dalam format Excel...')}
+              >
+                <Download className="w-4 h-4 inline mr-1" /> Export Laporan
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* VIEW: RINGKASAN EKSEKUTIF */}
+        {activeView === 'ringkasan' && (
+          <div className="view active" id="view-ringkasan">
+            {/* KPI ROW */}
+            <div className="kpi-row" id="kpi-row">
+              <div className="kpi-card" style={{ background: '#2b6fb3' }}>
+                <div className="kpi-top">
+                  <div className="kpi-ic"><Users className="w-5 h-5 text-white" /></div>
+                  <div className="kpi-label">Total AO Aktif</div>
+                </div>
+                <div className="kpi-value">{summary.totalAoAktif.toLocaleString('id-ID')} AO</div>
+                <div className="kpi-delta up"> Dari seluruh unit kerja</div>
+                <div className="kpi-note">Cabang / Unit Mekaar aktif</div>
+              </div>
+
+              <div className="kpi-card" style={{ background: '#1e7a34' }}>
+                <div className="kpi-top">
+                  <div className="kpi-ic"><Star className="w-5 h-5 text-white fill-white" /></div>
+                  <div className="kpi-label">Rata-rata Skor AO</div>
+                </div>
+                <div className="kpi-value">{summary.avgScore.toFixed(1)}</div>
+                <div className="kpi-delta up"> Target minimal: 75.0</div>
+                <div className="kpi-note">Gabungan 4 KPI Utama</div>
+              </div>
+
+              <div className="kpi-card" style={{ background: '#0f7c8a' }}>
+                <div className="kpi-top">
+                  <div className="kpi-ic"><Award className="w-5 h-5 text-white" /></div>
+                  <div className="kpi-label">AO Eligible Insentif</div>
+                </div>
+                <div className="kpi-value">{summary.totalEligible.toLocaleString('id-ID')} AO</div>
+                <div className="kpi-delta up"> {summary.eligiblePct}% memenuhi syarat</div>
+                <div className="kpi-note">Ambang batas skor &ge; 60</div>
+              </div>
+
+              <div className="kpi-card" style={{ background: '#6a4fa0' }}>
+                <div className="kpi-top">
+                  <div className="kpi-ic"><Building2 className="w-5 h-5 text-white" /></div>
+                  <div className="kpi-label">Total Unit Kerja</div>
+                </div>
+                <div className="kpi-value">{summary.totalUnits} Unit</div>
+                <div className="kpi-delta flat"> Kantor Cabang</div>
+                <div className="kpi-note">Terdaftar pada sistem</div>
+              </div>
+
+              <div className="kpi-card" style={{ background: '#e3a022' }}>
+                <div className="kpi-top">
+                  <div className="kpi-ic"><Medal className="w-5 h-5 text-white" /></div>
+                  <div className="kpi-label">Top Performing Unit</div>
+                </div>
+                <div className="kpi-value" style={{ fontSize: 18 }}>{summary.topUnit?.nama || 'N/A'}</div>
+                <div className="kpi-delta up"> Skor Rata-rata: {Number(summary.topUnit?.avgScore || 0).toFixed(1)}</div>
+                <div className="kpi-note flex items-center gap-1"><Award className="w-3.5 h-3.5 inline" /> Peringkat 1 Nasional</div>
+              </div>
+            </div>
+
+            {/* GRID 3 (DONUT, GAUGES, SCATTER) */}
+            <div className="grid-row grid-3">
+              <div className="card">
+                <div className="card-head">
+                  <div>
+                    <h3>Distribusi Skor AO (Seluruh AO)</h3>
+                  </div>
+                </div>
+                <div className="donut-wrap">
+                  <div className="donut-canvas-box">
+                    <Doughnut
+                      data={{
+                        labels: donutLabels,
+                        datasets: [{
+                          data: donutCounts,
+                          backgroundColor: donutColors,
+                          borderWidth: 2,
+                          borderColor: '#ffffff',
+                          hoverOffset: 4
+                        }]
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        cutout: '72%'
+                      }}
+                    />
+                    <div className="donut-center">
+                      <b>{summary.totalAoAktif}</b>
+                      <span>Total AO</span>
+                    </div>
+                  </div>
+                  <div className="legend-row" id="donut-legend">
+                    {chartsData.donut.map((item, idx) => {
+                      const cat = item.cat || item.kategori || 'N/A';
+                      const count = Number(item.c || item.count) || 0;
+                      const pct = summary.totalAoAktif ? ((count / summary.totalAoAktif) * 100).toFixed(1) + '%' : '0%';
+                      return (
+                        <div key={idx} className="legend-item">
+                          <span className="legend-dot" style={{ background: CATEGORY_COLORS[cat] || '#2b6fb3' }} />
+                          <span>{cat}</span>
+                          <span className="cnt">({count} AO)</span>
+                          <span className="pct">{pct}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="total-ao-badge">
+                  <span className="lbl">Total AO Aktif</span>
+                  <span className="val">{summary.totalAoAktif} AO</span>
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="card-head">
+                  <div>
+                    <h3>Performa Berdasarkan 4 KPI Utama</h3>
+                    <div className="card-sub">Rata-rata pencapaian (dibatasi 0–120%)</div>
+                  </div>
+                </div>
+                <div className="gauge-grid" id="gauge-grid">
+                  {gaugeList.map((g, idx) => {
+                    const pct = Math.min(100, Math.max(0, (g.val / 120) * 100));
+                    return (
+                      <div key={idx} className="gauge-item">
+                        <div className="glabel">{g.label}</div>
+                        <div style={{ position: 'relative', width: 75, height: 75, margin: '8px auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <svg viewBox="0 0 36 36" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
+                            <path stroke="#eef1f6" strokeWidth="3.5" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            <path stroke={g.color} strokeWidth="3.5" strokeDasharray={`${pct}, 100`} strokeLinecap="round" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                          </svg>
+                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#0e3159' }}>
+                            {fmt1(g.val)}%
+                          </div>
+                        </div>
+                        <div className="gweight">Bobot ({g.weight})</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="card-head">
+                  <div>
+                    <h3>Sebaran Skor AO (Seluruh AO)</h3>
+                  </div>
+                </div>
+                <div className="scatter-wrap">
+                  <div className="chart-box" style={{ flex: 1, height: 210 }}>
+                    <Scatter
+                      data={{
+                        datasets: ['Sangat Tinggi', 'Tinggi', 'Sedang', 'Rendah'].map(cat => ({
+                          label: cat,
+                          data: (chartsData.scatter || []).filter(r => r.cat === cat).map(r => ({
+                            x: Number(r.flowrate) || 0,
+                            y: Number(r.score_akhir) || 0,
+                            nama: r.nama
+                          })),
+                          backgroundColor: CATEGORY_COLORS[cat] || '#2b6fb3',
+                          pointRadius: 4,
+                          pointHoverRadius: 6
+                        }))
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: { display: false },
+                          tooltip: {
+                            callbacks: {
+                              label: (ctx: any) => `${ctx.raw.nama || 'AO'}: FR ${ctx.raw.x}%, Skor ${ctx.raw.y}`
+                            }
+                          }
+                        },
+                        scales: {
+                          x: { title: { display: true, text: 'Flowrate (%)', font: { size: 10, weight: 'bold' } }, grid: { color: '#f0f2f6' } },
+                          y: { title: { display: true, text: 'Skor Akhir', font: { size: 10, weight: 'bold' } }, grid: { color: '#f0f2f6' } }
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="legend-row" style={{ width: 'auto', flexShrink: 0 }}>
+                    {['Sangat Tinggi', 'Tinggi', 'Sedang', 'Rendah'].map(cat => (
+                      <div key={cat} className="legend-item">
+                        <span className="legend-dot" style={{ background: CATEGORY_COLORS[cat] || '#2b6fb3' }} />
+                        <span>{cat}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* GRID 3 (SIMULATION) */}
+            <div className="grid-row grid-3">
+              <div className="card">
+                <div className="card-head">
+                  <div>
+                    <h3>Simulasi Anggaran &amp; Distribusi Insentif</h3>
+                    <div className="card-sub">Metode: Performance Pool</div>
+                  </div>
+                </div>
+                <div className="sim-form" style={{ gridTemplateColumns: '1fr', gap: '8px' }}>
+                  <div className="field full">
+                    <label>Total Budget Insentif (Rp)</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={formatNumberInput(simBudget)}
+                      onChange={(e) => setSimBudget(parseNumberInput(e.target.value))}
+                    />
+                  </div>
+                  <div className="field" style={{ flex: 1 }}>
+                    <label>Budget insentif unit (Rp)</label>
+                    <input type="text" value={rupiah(simBudget)} disabled style={{ background: '#f6f8fb' }} />
+                  </div>
+                  <div className="field full">
+                    <label>Metode Distribusi</label>
+                    <select disabled style={{ background: '#f6f8fb' }}>
+                      <option>Performance Pool</option>
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <div className="field" style={{ flex: 1 }}>
+                      <label>Skor Minimum</label>
+                      <input
+                        type="number"
+                        value={simMinScore}
+                        onChange={(e) => setSimMinScore(Number(e.target.value))}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <div className="field" style={{ flex: 1 }}>
+                      <label>Min Insentif (Rp)</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={formatNumberInput(simMinInsentif)}
+                        onChange={(e) => setSimMinInsentif(parseNumberInput(e.target.value))}
+                      />
+                    </div>
+                    <div className="field" style={{ flex: 1 }}>
+                      <label>Max Insentif (Rp)</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={formatNumberInput(simMaxInsentif)}
+                        placeholder="Tanpa batas"
+                        onChange={(e) => {
+                          const val = parseNumberInput(e.target.value);
+                          setSimMaxInsentif(val ? val.toString() : '');
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <button
+                  className="btn btn-primary"
+                  onClick={runSimulation}
+                  disabled={simLoading}
+                  style={{ width: '100%', justifyContent: 'center', marginTop: 8 }}
+                >
+                  <Play className="w-4 h-4 inline mr-1" /> {simLoading ? 'Menghitung...' : 'Jalankan Simulasi'}
+                </button>
+              </div>
+
+              <div className="card">
+                <div className="card-head">
+                  <div>
+                    <h3>Hasil Simulasi Distribusi Insentif (Performance Pool)</h3>
+                  </div>
+                </div>
+                <div className="sim-summary" style={{ marginTop: 0, marginBottom: 8 }}>
+                  <div className="sim-stat">
+                    <span>Total Insentif Tersalurkan</span>
+                    <b>{rupiah(simResult?.totalDispersed || 0)}</b>
+                  </div>
+                  <div className="sim-stat">
+                    <span>Sisa Budget / Selisih</span>
+                    <b style={{ color: (simResult?.efficiencyRp || 0) >= 0 ? 'var(--green-dark)' : 'var(--red)' }}>
+                      {rupiah(simResult?.efficiencyRp || 0)}
+                    </b>
+                  </div>
+                  <div className="sim-stat">
+                    <span>AO Penerima</span>
+                    <b>{simResult?.eligibleCount || 0} AO</b>
+                  </div>
+                  <div className="sim-stat">
+                    <span>Rata-rata Insentif</span>
+                    <b>{rupiah(simResult?.avgInsentifEligible || 0)}</b>
+                  </div>
+                </div>
+                <div>
+                  <h4 style={{ fontSize: 11, color: 'var(--navy-800)', margin: '6px 0 2px' }}>
+                    Distribusi Insentif per Range Skor (AO Eligible &ge; {simMinScore})
+                  </h4>
+                </div>
+                <div className="chart-box">
+                  <Bar
+                    data={{
+                      labels: (simResult?.buckets || []).map((b: any) => b.label),
+                      datasets: [
+                        {
+                          label: 'Rata-rata Insentif (Rp)',
+                          data: (simResult?.buckets || []).map((b: any) => b.avg),
+                          backgroundColor: '#2b6fb3',
+                          borderRadius: 4
+                        }
+                      ]
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                          callbacks: {
+                            label: (ctx: any) => `Rata-rata: ${rupiah(ctx.raw)} (${simResult?.buckets[ctx.dataIndex]?.count || 0} AO)`
+                          }
+                        }
+                      },
+                      scales: {
+                        x: { grid: { display: false } },
+                        y: { title: { display: true, text: 'Insentif (Rp)', font: { size: 10 } }, grid: { color: '#f0f2f6' } }
+                      }
+                    }}
+                  />
+                </div>
+                <div
+                  className="footnote"
+                  style={{ marginTop: 12, background: '#fdeceb', color: 'var(--red)', padding: 10, borderRadius: 6, textAlign: 'center', fontWeight: 600, borderTop: 'none' }}
+                >
+                  AO tidak eligible (Skor &lt; <span>{simMinScore}</span>) : <span>{simResult?.notEligibleCount || 0}</span> AO (<span>{simResult?.totalAO ? ((simResult.notEligibleCount / simResult.totalAO) * 100).toFixed(1) : 0}%</span>) - Tidak Menerima Insentif
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="card-head">
+                  <div>
+                    <h3>Perbandingan Skema Insentif</h3>
+                  </div>
+                </div>
+                <div className="table-scroll">
+                  <table className="comparison-table">
+                    <thead>
+                      <tr>
+                        <th>Keterangan</th>
+                        <th>Skema Sebelumnya<br /><span style={{ fontSize: 9, fontWeight: 'normal' }}>(Sama Rata)</span></th>
+                        <th>Skema Baru<br /><span style={{ fontSize: 9, fontWeight: 'normal' }}>(Performance Pool)</span></th>
+                        <th>Selisih / Efisiensi</th>
+                        <th>% Perubahan</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>Total Budget</td>
+                        <td>{rupiah(simBudget)}</td>
+                        <td>{rupiah(simBudget)}</td>
+                        <td>Rp 0</td>
+                        <td>0.00%</td>
+                      </tr>
+                      <tr>
+                        <td>Total Insentif Tersalurkan</td>
+                        <td>{rupiah(simBudget)}</td>
+                        <td className="good">{rupiah(simResult?.totalDispersed || 0)}</td>
+                        <td className="good">{rupiah(simResult?.efficiencyRp || 0)}</td>
+                        <td className="good">-{Number(simResult?.efficiencyPct || 0).toFixed(2)}%</td>
+                      </tr>
+                      <tr>
+                        <td>AO Penerima</td>
+                        <td>{simResult?.totalAO || 0} AO</td>
+                        <td>{simResult?.eligibleCount || 0} AO</td>
+                        <td className="bad">-{Number((simResult?.totalAO || 0) - (simResult?.eligibleCount || 0))} AO</td>
+                        <td className="bad">
+                          -{simResult?.totalAO ? (((simResult.totalAO - simResult.eligibleCount) / simResult.totalAO) * 100).toFixed(1) : 0}%
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>Rata-rata Insentif per AO</td>
+                        <td>{rupiah(simResult?.totalAO ? simBudget / simResult.totalAO : 0)}</td>
+                        <td className="good">{rupiah(simResult?.avgInsentifEligible || 0)}</td>
+                        <td className="good">
+                          {rupiah(
+                            (simResult?.avgInsentifEligible || 0) -
+                              (simResult?.totalAO ? simBudget / simResult.totalAO : 0)
+                          )}
+                        </td>
+                        <td className="good">
+                          {simResult?.totalAO && simBudget > 0
+                            ? (
+                                (((simResult.avgInsentifEligible || 0) - simBudget / simResult.totalAO) /
+                                  (simBudget / simResult.totalAO)) *
+                                100
+                              ).toFixed(1) + '%'
+                            : '0.0%'}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>Insentif Tertinggi</td>
+                        <td>{rupiah(simResult?.totalAO ? simBudget / simResult.totalAO : 0)}</td>
+                        <td className="good">{rupiah(simResult?.maxInsentifReceived || 0)}</td>
+                        <td className="good">
+                          {rupiah(
+                            (simResult?.maxInsentifReceived || 0) -
+                              (simResult?.totalAO ? simBudget / simResult.totalAO : 0)
+                          )}
+                        </td>
+                        <td className="good">Max Reward</td>
+                      </tr>
+                      <tr>
+                        <td>Insentif Terendah (Eligible)</td>
+                        <td>{rupiah(simResult?.totalAO ? simBudget / simResult.totalAO : 0)}</td>
+                        <td>{rupiah(simResult?.minInsentifReceived || 0)}</td>
+                        <td>
+                          {rupiah(
+                            (simResult?.minInsentifReceived || 0) -
+                              (simResult?.totalAO ? simBudget / simResult.totalAO : 0)
+                          )}
+                        </td>
+                        <td>Min Reward</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* GRID 2-1 (RANKING, INSIGHTS) */}
+            <div className="grid-row grid-2-1">
+              <div className="card">
+                <div className="card-head">
+                  <div>
+                    <h3>Ranking AO (Top 10)</h3>
+                  </div>
+                </div>
+                <div className="table-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th rowSpan={2} style={{ textAlign: 'center' }}>Peringkat</th>
+                        <th rowSpan={2}>AO ID</th>
+                        <th rowSpan={2}>Nama AO</th>
+                        <th rowSpan={2}>Unit Kerja</th>
+                        <th rowSpan={2} style={{ textAlign: 'center' }}>Skor Akhir</th>
+                        <th colSpan={4} style={{ textAlign: 'center', borderBottom: '1px solid #e2e7f0' }}>Skor per KPI</th>
+                        <th rowSpan={2} style={{ textAlign: 'right' }}>Insentif (Rp)</th>
+                        <th rowSpan={2} style={{ textAlign: 'center' }}>Peringkat Unit</th>
+                      </tr>
+                      <tr>
+                        <th style={{ textAlign: 'center' }}>SI/CLBK<br /><span style={{ fontSize: 9 }}>(30%)</span></th>
+                        <th style={{ textAlign: 'center' }}>SL<br /><span style={{ fontSize: 9 }}>(30%)</span></th>
+                        <th style={{ textAlign: 'center' }}>Flowrate<br /><span style={{ fontSize: 9 }}>(20%)</span></th>
+                        <th style={{ textAlign: 'center' }}>Hadir Bayar<br /><span style={{ fontSize: 9 }}>(20%)</span></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rankingData.slice(0, 10).map((ao, idx) => (
+                        <tr key={ao.id || idx}>
+                          <td style={{ textAlign: 'center' }}>
+                            <div className="rank-pill mx-auto">{idx + 1}</div>
+                          </td>
+                          <td><b>{ao.ao_code}</b></td>
+                          <td>{ao.nama || ao.ao_nama}</td>
+                          <td>{ao.unit_nama || 'Unit'}</td>
+                          <td style={{ textAlign: 'center' }}><b>{Number(ao.score_akhir || 0).toFixed(2)}</b></td>
+                          <td style={{ textAlign: 'center' }}>{Number(ao.si_clbk || 0).toFixed(1)}%</td>
+                          <td style={{ textAlign: 'center' }}>{Number(ao.sl || 0).toFixed(1)}%</td>
+                          <td style={{ textAlign: 'center' }}>{Number(ao.flowrate || 0).toFixed(1)}%</td>
+                          <td style={{ textAlign: 'center' }}>{Number(ao.full_payment || 0).toFixed(1)}%</td>
+                          <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--green-dark)' }}>
+                            {rupiah(ao.insentif || 0)}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>#{idx + 1}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="card-head">
+                  <div>
+                    <h3>Insight &amp; Rekomendasi</h3>
+                  </div>
+                </div>
+                <ul className="insight-list" style={{ marginTop: 10 }}>
+                  <li>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-700 flex-shrink-0 mt-0.5" />
+                    <div><b>{summary.eligiblePct}% AO</b> masuk kategori eligible (Score ≥ {simMinScore}) dan berhak menerima insentif.</div>
+                  </li>
+                  <li>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-700 flex-shrink-0 mt-0.5" />
+                    <div>Skema Performance Pool menghasilkan efisiensi anggaran sebesar <b>{Number(simResult?.efficiencyPct || 0).toFixed(2)}%</b>.</div>
+                  </li>
+                  <li>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-700 flex-shrink-0 mt-0.5" />
+                    <div>Rata-rata insentif per AO sedikit lebih rendah namun distribusi lebih adil dan berbasis kinerja.</div>
+                  </li>
+                  <li>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-700 flex-shrink-0 mt-0.5" />
+                    <div>Top performer menerima insentif hingga <b>6,6x lebih tinggi</b> dari rata-rata.</div>
+                  </li>
+                  <li>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-700 flex-shrink-0 mt-0.5" />
+                    <div>Fokus peningkatan utama: <b>Flowrate (76,40%)</b> agar kontribusi scoring lebih optimal.</div>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* VIEW: PARAMETER & BOBOT KPI */}
+        {activeView === 'param' && (
+          <div className="view active" id="view-param">
+            <div className="card" style={{ marginBottom: 14 }}>
+              <div className="card-head">
+                <div>
+                  <h3>Bobot 4 KPI Utama</h3>
+                  <div className="card-sub">
+                    Total bobot harus 100%. Mengubah nilai akan menghitung ulang Score Akhir seluruh AO.
+                  </div>
+                </div>
+              </div>
+              <div className="param-grid">
+                <div className="param-box">
+                  <label>SI/CLBK (%)</label>
+                  <input
+                    type="number"
+                    value={weights.si}
+                    onChange={(e) => setWeights({ ...weights, si: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="param-box">
+                  <label>SL (%)</label>
+                  <input
+                    type="number"
+                    value={weights.sl}
+                    onChange={(e) => setWeights({ ...weights, sl: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="param-box">
+                  <label>Flowrate (%)</label>
+                  <input
+                    type="number"
+                    value={weights.fr}
+                    onChange={(e) => setWeights({ ...weights, fr: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="param-box">
+                  <label>Hadir Bayar Full Payment (%)</label>
+                  <input
+                    type="number"
+                    value={weights.fp}
+                    onChange={(e) => setWeights({ ...weights, fp: Number(e.target.value) })}
+                  />
+                </div>
+              </div>
+              <p style={{ margin: '12px 0 4px' }}>
+                Total bobot:{' '}
+                <span className={`weight-total ${Math.abs(totalWeightSum - 100) <= 0.01 ? 'good' : 'bad'}`}>
+                  {totalWeightSum}%
+                </span>
+              </p>
+              <button
+                className="btn btn-primary"
+                onClick={handleSaveWeights}
+                style={{ marginTop: 8 }}
+              >
+                <Save className="w-4 h-4 inline mr-1" /> Simpan &amp; Hitung Ulang
+              </button>
+            </div>
+
+            <div className="card">
+              <div className="card-head">
+                <div>
+                  <h3>Klasifikasi Score Akhir</h3>
+                  <div className="card-sub">Ambang batas kategori distribusi skor AO</div>
+                </div>
+              </div>
+              <div className="param-grid">
+                <div className="param-box">
+                  <label>Sangat Tinggi (Skor ≥)</label>
+                  <input
+                    type="number"
+                    value={thresholds.sangatTinggi}
+                    onChange={(e) => setThresholds({ ...thresholds, sangatTinggi: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="param-box">
+                  <label>Tinggi (Skor ≥)</label>
+                  <input
+                    type="number"
+                    value={thresholds.tinggi}
+                    onChange={(e) => setThresholds({ ...thresholds, tinggi: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="param-box">
+                  <label>Sedang (Skor ≥)</label>
+                  <input
+                    type="number"
+                    value={thresholds.sedang}
+                    onChange={(e) => setThresholds({ ...thresholds, sedang: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="param-box">
+                  <label>Skor Minimum Eligible Insentif</label>
+                  <input
+                    type="number"
+                    value={thresholds.eligible}
+                    onChange={(e) => setThresholds({ ...thresholds, eligible: Number(e.target.value) })}
+                  />
+                </div>
+              </div>
+              <button
+                className="btn btn-primary"
+                onClick={handleSaveThresholds}
+                style={{ marginTop: 12 }}
+              >
+                <Save className="w-4 h-4 inline mr-1" /> Simpan Klasifikasi
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* VIEW: DATA AO & ASSIGNMENT */}
+        {activeView === 'data' && (
+          <div className="view active" id="view-data">
+            <div
+              className="card"
+              style={{
+                marginBottom: 14,
+                background: 'linear-gradient(135deg, #ffffff 0%, #f8fafd 100%)',
+                border: '1.5px dashed var(--navy-300)'
+              }}
+            >
+              <div className="card-head">
+                <div>
+                  <h3 style={{ color: 'var(--navy-800)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <FileSpreadsheet className="w-5 h-5 text-emerald-600 inline" /> Upload &amp; Konversi Excel Assignment Bulanan
+                  </h3>
+                  <div className="card-sub">
+                    Unggah laporan Excel assignment AO untuk menghitung ulang skor secara otomatis di MySQL.
+                  </div>
+                </div>
+                <a
+                  href="/api/upload/template"
+                  className="btn btn-outline"
+                  target="_blank"
+                  download
+                  style={{ textDecoration: 'none' }}
+                >
+                  <Download className="w-4 h-4 inline mr-1" /> Unduh Template Excel
+                </a>
+              </div>
+              <div style={{ padding: '12px 0' }}>
+                <form
+                  onSubmit={handleUploadSubmit}
+                  style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}
+                >
+                  <div className="field" style={{ width: 180 }}>
+                    <label>Periode Data</label>
+                    <select
+                      value={uploadPeriode}
+                      onChange={(e) => setUploadPeriode(e.target.value)}
+                    >
+                      <option value="2026-06">Juni 2026</option>
+                      <option value="2026-07">Juli 2026</option>
+                      <option value="2026-05">Mei 2026</option>
+                    </select>
+                  </div>
+                  <div className="field" style={{ flex: 1, minWidth: 240 }}>
+                    <label>Pilih File Excel (.xlsx / .csv)</label>
+                    <input
+                      type="file"
+                      accept=".xlsx, .xls, .csv"
+                      onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                      required
+                      style={{ padding: 6, border: '1px solid #ccd5e0', borderRadius: 6, background: '#fff', width: '100%' }}
+                    />
+                  </div>
+                  <button type="submit" className="btn btn-primary" style={{ height: 38 }} disabled={uploadProgress}>
+                    <Upload className="w-4 h-4 inline mr-1" /> {uploadProgress ? 'Memproses...' : '🚀 Upload & Proses'}
+                  </button>
+                </form>
+                {uploadProgress && (
+                  <div
+                    style={{ marginTop: 12, padding: 10, background: '#e8f0fe', borderRadius: 6, color: 'var(--navy-800)', fontWeight: 600, fontSize: 13 }}
+                  >
+                    Mengunggah dan memproses spreadsheet ke MySQL...
+                  </div>
+                )}
+                {uploadResult && (
+                  <div
+                    style={{
+                      marginTop: 12,
+                      padding: 12,
+                      borderRadius: 6,
+                      fontSize: 13,
+                      background: uploadResult.includes('✅') ? '#e6f5ea' : '#fdeceb',
+                      color: uploadResult.includes('✅') ? 'var(--green-dark)' : 'var(--red)'
+                    }}
+                  >
+                    {uploadResult}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="card-head">
+                <div>
+                  <h3>Data AO &amp; Assignment</h3>
+                  <div className="card-sub">
+                    CRUD dasar di atas data AO — perubahan langsung memicu hitung ulang Score Akhir.
+                  </div>
+                </div>
+                <button className="btn btn-primary" onClick={openAddModal}>
+                  <Plus className="w-4 h-4 inline mr-1" /> Tambah AO
+                </button>
+              </div>
+
+              <div className="search-row">
+                <div className="field">
+                  <label>Cari (Nama / AO ID)</label>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    placeholder="mis. Siti / AO0001"
+                    onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+                  />
+                </div>
+                <div className="field">
+                  <label>Unit Kerja</label>
+                  <select
+                    value={unitFilter}
+                    onChange={(e) => { setUnitFilter(e.target.value); setPage(1); }}
+                  >
+                    <option value="all">Semua Unit</option>
+                    {units.map((u) => (
+                      <option key={u.id} value={u.id.toString()}>{u.nama}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Kategori</label>
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
+                  >
+                    <option value="all">Semua Kategori</option>
+                    <option value="Sangat Tinggi">Sangat Tinggi</option>
+                    <option value="Tinggi">Tinggi</option>
+                    <option value="Sedang">Sedang</option>
+                    <option value="Rendah">Rendah</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th className={`sortable ${sortCol === 'ao.ao_code' ? sortDir : ''}`} onClick={() => handleSort('ao.ao_code')}>AO ID</th>
+                      <th className={`sortable ${sortCol === 'ao.nama' ? sortDir : ''}`} onClick={() => handleSort('ao.nama')}>Nama AO</th>
+                      <th className={`sortable ${sortCol === 'unit_nama' ? sortDir : ''}`} onClick={() => handleSort('unit_nama')}>Unit Kerja</th>
+                      <th className={`sortable ${sortCol === 'si_clbk' ? sortDir : ''}`} onClick={() => handleSort('si_clbk')}>SI/CLBK</th>
+                      <th className={`sortable ${sortCol === 'sl' ? sortDir : ''}`} onClick={() => handleSort('sl')}>SL</th>
+                      <th className={`sortable ${sortCol === 'flowrate' ? sortDir : ''}`} onClick={() => handleSort('flowrate')}>Flowrate</th>
+                      <th className={`sortable ${sortCol === 'full_payment' ? sortDir : ''}`} onClick={() => handleSort('full_payment')}>Full Payment</th>
+                      <th className={`sortable ${sortCol === 'score_akhir' ? sortDir : ''}`} onClick={() => handleSort('score_akhir')}>Skor Akhir</th>
+                      <th className={`sortable ${sortCol === 'cat' ? sortDir : ''}`} onClick={() => handleSort('cat')}>Kategori</th>
+                      <th>Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {aoList.length === 0 ? (
+                      <tr>
+                        <td colSpan={10} className="text-center py-6 empty-note">Tidak ada data AO yang ditemukan.</td>
+                      </tr>
+                    ) : (
+                      aoList.map((ao) => {
+                        let badgeClass = 'badge-amber';
+                        if (ao.cat === 'Sangat Tinggi' || ao.cat === 'Tinggi') badgeClass = 'badge-green';
+                        if (ao.cat === 'Rendah') badgeClass = 'badge-red';
+
+                        return (
+                          <tr key={ao.perf_id || ao.id}>
+                            <td><b>{ao.ao_code}</b></td>
+                            <td>{ao.nama}</td>
+                            <td>{ao.unit_nama}</td>
+                            <td>{ao.si_clbk}%</td>
+                            <td>{ao.sl}%</td>
+                            <td>{ao.flowrate}%</td>
+                            <td>{ao.full_payment}%</td>
+                            <td><b>{ao.score_akhir}</b></td>
+                            <td><span className={`badge ${badgeClass}`}>{ao.cat}</span></td>
+                            <td>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  className="btn btn-ghost btn-sm"
+                                  onClick={() => openEditModal(ao)}
+                                  title="Edit"
+                                >
+                                  <Edit className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  className="btn btn-danger btn-sm"
+                                  onClick={() => handleDeleteAo(ao.id, ao.nama)}
+                                  title="Hapus"
+                                  style={{ padding: '4px 6px' }}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="pager">
+                <span>Menampilkan {aoList.length} dari {totalAoCount} AO (Halaman {page} dari {totalPages})</span>
+                <button
+                  className="btn btn-outline btn-sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                >
+                  <ChevronLeft className="w-4 h-4 inline mr-1" /> Sebelumnya
+                </button>
+                <button
+                  className="btn btn-outline btn-sm"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                >
+                  Berikutnya <ChevronRight className="w-4 h-4 inline ml-1" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* MODAL ADD/EDIT AO */}
+      {isModalOpen && (
+        <>
+          <div className="modal-backdrop" onClick={() => setIsModalOpen(false)} />
+          <div className="modal" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1050 }}>
+            <div className="flex items-center justify-between border-b pb-3 mb-4">
+              <h3 style={{ margin: 0, color: 'var(--navy-800)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {modalMode === 'add' ? (
+                  <>
+                    <Plus className="w-5 h-5 text-emerald-600 inline" /> Tambah Data AO
+                  </>
+                ) : (
+                  <>
+                    <Edit className="w-5 h-5 text-blue-600 inline" /> Edit Data AO
+                  </>
+                )}
+              </h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setIsModalOpen(false)}>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleModalSubmit}>
+              <div className="modal-form">
+                <div className="field">
+                  <label>AO ID / Code</label>
+                  <input
+                    type="text"
+                    value={aoForm.ao_code}
+                    disabled={modalMode === 'edit'}
+                    onChange={(e) => setAoForm({ ...aoForm, ao_code: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="field">
+                  <label>Unit Kerja</label>
+                  <select
+                    value={aoForm.unit_id}
+                    onChange={(e) => setAoForm({ ...aoForm, unit_id: e.target.value })}
+                  >
+                    {units.map((u) => (
+                      <option key={u.id} value={u.id.toString()}>{u.nama}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="field full">
+                  <label>Nama Lengkap AO</label>
+                  <input
+                    type="text"
+                    value={aoForm.nama}
+                    placeholder="mis. Siti Aminah"
+                    onChange={(e) => setAoForm({ ...aoForm, nama: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="field">
+                  <label>SI / CLBK (%)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={aoForm.si_clbk}
+                    onChange={(e) => setAoForm({ ...aoForm, si_clbk: Number(e.target.value) })}
+                    required
+                  />
+                </div>
+                <div className="field">
+                  <label>Service Level (%)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={aoForm.sl}
+                    onChange={(e) => setAoForm({ ...aoForm, sl: Number(e.target.value) })}
+                    required
+                  />
+                </div>
+                <div className="field">
+                  <label>Flowrate (%)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={aoForm.flowrate}
+                    onChange={(e) => setAoForm({ ...aoForm, flowrate: Number(e.target.value) })}
+                    required
+                  />
+                </div>
+                <div className="field">
+                  <label>Full Payment (%)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={aoForm.full_payment}
+                    onChange={(e) => setAoForm({ ...aoForm, full_payment: Number(e.target.value) })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="modal-actions">
+                <button type="button" className="btn btn-outline" onClick={() => setIsModalOpen(false)}>
+                  Batal
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  <Save className="w-4 h-4 inline mr-1" /> {modalMode === 'add' ? 'Simpan Data AO' : 'Update Data AO'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </>
+      )}
+
+      {/* TOAST NOTIFICATION */}
+      <div className={`toast ${showToast ? 'show' : ''}`} id="toast">
+        {toastMsg}
+      </div>
     </div>
   );
 }

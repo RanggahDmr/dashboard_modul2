@@ -147,3 +147,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = req.nextUrl;
+    const id = searchParams.get('id');
+    if (!id) return NextResponse.json({ error: 'ID diperlukan' }, { status: 400 });
+    const pool = getPool();
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      await connection.query("DELETE FROM ao_performance_monthly WHERE ao_id = ?", [id]);
+      await connection.query("DELETE FROM ao_master WHERE id = ?", [id]);
+      await connection.commit();
+      await recomputeScores(pool);
+      return NextResponse.json({ success: true, message: 'AO berhasil dihapus' });
+    } catch (err: any) {
+      await connection.rollback();
+      throw err;
+    } finally {
+      connection.release();
+    }
+  } catch (err: any) {
+    console.error('Error deleteAO:', err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
