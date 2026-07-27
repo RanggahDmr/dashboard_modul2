@@ -42,7 +42,8 @@ import {
   Medal,
   FileSpreadsheet,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Sparkles
 } from 'lucide-react';
 import { UnitKerja } from '@/types/ao';
 
@@ -111,7 +112,8 @@ export default function HomePage() {
     totalUnits: 0,
     eligiblePct: 0,
     topUnit: { nama: 'N/A', avgScore: 0 },
-    periodes: ['2026-06']
+    periodes: ['2026-06'],
+    insights: [] as any[]
   });
   const [chartsData, setChartsData] = useState<{
     donut: any[];
@@ -288,7 +290,8 @@ export default function HomePage() {
           totalUnits: dataSum.totalUnits || 0,
           eligiblePct: dataSum.eligiblePct || 0,
           topUnit: dataSum.topUnit || { nama: 'N/A', avgScore: 0 },
-          periodes: dataSum.periodes || ['2026-06']
+          periodes: dataSum.periodes || ['2026-06'],
+          insights: dataSum.insights || []
         });
       }
 
@@ -688,24 +691,22 @@ export default function HomePage() {
                 <div className="kpi-note">Ambang batas skor &ge; 60</div>
               </div>
 
-              <div className="kpi-card" style={{ background: '#6a4fa0' }}>
+              <div className="kpi-card" style={{ background: '#c88a1a' }}>
                 <div className="kpi-top">
-                  <div className="kpi-ic"><Building2 className="w-5 h-5 text-white" /></div>
-                  <div className="kpi-label">Total Unit Kerja</div>
+                  <div className="kpi-ic"><Wallet className="w-5 h-5 text-white" /></div>
+                  <div className="kpi-label">Total Budget Insentif</div>
                 </div>
-                <div className="kpi-value">{summary.totalUnits} Unit</div>
-                <div className="kpi-delta flat"> Kantor Cabang</div>
-                <div className="kpi-note">Terdaftar pada sistem</div>
+                <div className="kpi-value">{rupiah(simParamsRef.current.budget)}</div>
+                <div className="kpi-note">Periode {selectedPeriode}</div>
               </div>
 
-              <div className="kpi-card" style={{ background: '#e3a022' }}>
+              <div className="kpi-card" style={{ background: '#6a4fa0' }}>
                 <div className="kpi-top">
-                  <div className="kpi-ic"><Medal className="w-5 h-5 text-white" /></div>
-                  <div className="kpi-label">Top Performing Unit</div>
+                  <div className="kpi-ic"><Sparkles className="w-5 h-5 text-white" /></div>
+                  <div className="kpi-label">Potensi Efisiensi</div>
                 </div>
-                <div className="kpi-value" style={{ fontSize: 18 }}>{summary.topUnit?.nama || 'N/A'}</div>
-                <div className="kpi-delta up"> Skor Rata-rata: {Number(summary.topUnit?.avgScore || 0).toFixed(1)}</div>
-                <div className="kpi-note flex items-center gap-1"><Award className="w-3.5 h-3.5 inline" /> Peringkat 1 Nasional</div>
+                <div className="kpi-value">{rupiah(simResult?.efficiencyRp || 0)}</div>
+                <div className="kpi-note">{simResult?.efficiencyPct ? Number(simResult.efficiencyPct).toFixed(1).replace('.', ',') + '% dari skema lama' : 'Jalankan simulasi'}</div>
               </div>
             </div>
 
@@ -932,24 +933,22 @@ export default function HomePage() {
                     <h3>Hasil Simulasi Distribusi Insentif (Performance Pool)</h3>
                   </div>
                 </div>
-                <div className="sim-summary" style={{ marginTop: 0, marginBottom: 8 }}>
-                  <div className="sim-stat">
-                    <span>Total Insentif Tersalurkan</span>
-                    <b>{rupiah(simResult?.totalDispersed || 0)}</b>
+                <div className="sim-summary" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginTop: 12, marginBottom: 16 }}>
+                  <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    <b style={{ fontSize: '22px', color: '#1e293b', lineHeight: 1.2 }}>{(simResult?.eligibleCount || 0).toLocaleString('id-ID')}<br/>AO</b>
+                    <span style={{ fontSize: '11px', color: '#64748b', marginTop: '12px', lineHeight: 1.2 }}>Total Penerima (Eligible)</span>
                   </div>
-                  <div className="sim-stat">
-                    <span>Sisa Budget / Selisih</span>
-                    <b style={{ color: (simResult?.efficiencyRp || 0) >= 0 ? 'var(--green-dark)' : 'var(--red)' }}>
-                      {rupiah(simResult?.efficiencyRp || 0)}
-                    </b>
+                  <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    <b style={{ fontSize: '22px', color: '#1e293b', lineHeight: 1.2, wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>{rupiah(simResult?.totalDispersed || 0).replace('Rp ', 'Rp\n')}</b>
+                    <span style={{ fontSize: '11px', color: '#64748b', marginTop: '12px', lineHeight: 1.2 }}>Total Insentif Terdistribusi</span>
                   </div>
-                  <div className="sim-stat">
-                    <span>AO Penerima</span>
-                    <b>{simResult?.eligibleCount || 0} AO</b>
+                  <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    <b style={{ fontSize: '22px', color: '#1e293b', lineHeight: 1.2, wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>{rupiah(simResult?.avgInsentifEligible || 0).replace('Rp ', 'Rp\n')}</b>
+                    <span style={{ fontSize: '11px', color: '#64748b', marginTop: '12px', lineHeight: 1.2 }}>Rata-rata Insentif</span>
                   </div>
-                  <div className="sim-stat">
-                    <span>Rata-rata Insentif</span>
-                    <b>{rupiah(simResult?.avgInsentifEligible || 0)}</b>
+                  <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    <b style={{ fontSize: '22px', color: '#1e293b', lineHeight: 1.2, wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>{rupiah(simResult?.efficiencyRp || 0).replace('Rp ', 'Rp\n')}</b>
+                    <span style={{ fontSize: '11px', color: '#64748b', marginTop: '12px', lineHeight: 1.2 }}>Potensi Efisiensi (Saving)</span>
                   </div>
                 </div>
                 <div>
@@ -963,10 +962,18 @@ export default function HomePage() {
                       labels: (simResult?.buckets || []).map((b: any) => b.label),
                       datasets: [
                         {
-                          label: 'Rata-rata Insentif (Rp)',
-                          data: (simResult?.buckets || []).map((b: any) => b.avg),
-                          backgroundColor: '#2b6fb3',
-                          borderRadius: 4
+                          label: 'Jumlah AO',
+                          data: (simResult?.buckets || []).map((b: any) => b.count),
+                          backgroundColor: '#93c5fd',
+                          yAxisID: 'y',
+                          borderRadius: 0
+                        },
+                        {
+                          label: 'Total Insentif (Rp)',
+                          data: (simResult?.buckets || []).map((b: any) => b.sum),
+                          backgroundColor: '#166534',
+                          yAxisID: 'y1',
+                          borderRadius: 0
                         }
                       ]
                     }}
@@ -974,16 +981,37 @@ export default function HomePage() {
                       responsive: true,
                       maintainAspectRatio: false,
                       plugins: {
-                        legend: { display: false },
+                        legend: { 
+                          display: true, 
+                          position: 'bottom',
+                          labels: { boxWidth: 12, usePointStyle: true, pointStyle: 'rect' }
+                        },
                         tooltip: {
                           callbacks: {
-                            label: (ctx: any) => `Rata-rata: ${rupiah(ctx.raw)} (${simResult?.buckets[ctx.dataIndex]?.count || 0} AO)`
+                            label: (ctx: any) => {
+                              if (ctx.dataset.label === 'Jumlah AO') return `${ctx.raw} AO`;
+                              return rupiah(ctx.raw);
+                            }
                           }
                         }
                       },
                       scales: {
                         x: { grid: { display: false } },
-                        y: { title: { display: true, text: 'Insentif (Rp)', font: { size: 10 } }, grid: { color: '#f0f2f6' } }
+                        y: { 
+                          type: 'linear',
+                          display: true,
+                          position: 'left',
+                          title: { display: true, text: 'Jumlah AO', font: { size: 10 } },
+                          grid: { color: '#f0f2f6' }
+                        },
+                        y1: {
+                          type: 'linear',
+                          display: true,
+                          position: 'right',
+                          title: { display: true, text: 'Insentif (Rp)', font: { size: 10 } },
+                          grid: { drawOnChartArea: false },
+                          ticks: { callback: (val: any) => (val / 1000000) + 'jt' }
+                        }
                       }
                     }}
                   />
@@ -1006,80 +1034,80 @@ export default function HomePage() {
                   <table className="comparison-table">
                     <thead>
                       <tr>
-                        <th>Keterangan</th>
-                        <th>Skema Sebelumnya<br /><span style={{ fontSize: 9, fontWeight: 'normal' }}>(Sama Rata)</span></th>
-                        <th>Skema Baru<br /><span style={{ fontSize: 9, fontWeight: 'normal' }}>(Performance Pool)</span></th>
-                        <th>Selisih / Efisiensi</th>
-                        <th>% Perubahan</th>
+                        <th style={{ color: 'var(--navy-800)', textAlign: 'left' }}>KETERANGAN</th>
+                        <th style={{ color: 'var(--navy-800)', textAlign: 'center' }}>SKEMA SEBELUMNYA<br /><span style={{ fontSize: 9, fontWeight: 'normal' }}>(SAMA RATA)</span></th>
+                        <th style={{ color: 'var(--navy-800)', textAlign: 'center' }}>SKEMA BARU<br /><span style={{ fontSize: 9, fontWeight: 'normal' }}>(PERFORMANCE POOL)</span></th>
+                        <th style={{ color: 'var(--navy-800)', textAlign: 'center' }}>SELISIH / EFISIENSI</th>
+                        <th style={{ color: 'var(--navy-800)', textAlign: 'center' }}>% PERUBAHAN</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr>
-                        <td>Total Budget</td>
-                        <td>{rupiah(simParamsRef.current.budget)}</td>
-                        <td>{rupiah(simParamsRef.current.budget)}</td>
-                        <td>Rp 0</td>
-                        <td>0.00%</td>
+                        <td style={{ fontWeight: 600, color: 'var(--navy-800)' }}>Total Budget</td>
+                        <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(simParamsRef.current.budget)}</td>
+                        <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(simParamsRef.current.budget)}</td>
+                        <td style={{ fontWeight: 600, color: 'var(--blue)', textAlign: 'center' }}>-</td>
+                        <td style={{ fontWeight: 600, color: 'var(--blue)', textAlign: 'center' }}>-</td>
                       </tr>
                       <tr>
-                        <td>Total Insentif Tersalurkan</td>
-                        <td>{rupiah(simParamsRef.current.budget)}</td>
-                        <td className="good">{rupiah(simResult?.totalDispersed || 0)}</td>
-                        <td className="good">{rupiah(simResult?.efficiencyRp || 0)}</td>
-                        <td className="good">-{Number(simResult?.efficiencyPct || 0).toFixed(2)}%</td>
-                      </tr>
-                      <tr>
-                        <td>AO Penerima</td>
-                        <td>{simResult?.totalAO || 0} AO</td>
-                        <td>{simResult?.eligibleCount || 0} AO</td>
-                        <td className="bad">-{Number((simResult?.totalAO || 0) - (simResult?.eligibleCount || 0))} AO</td>
-                        <td className="bad">
-                          -{simResult?.totalAO ? (((simResult.totalAO - simResult.eligibleCount) / simResult.totalAO) * 100).toFixed(1) : 0}%
+                        <td style={{ fontWeight: 600, color: 'var(--navy-800)' }}>Total AO Eligible</td>
+                        <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{simResult?.totalAO || 0} AO (100%)</td>
+                        <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{simResult?.eligibleCount || 0} AO ({simResult?.totalAO ? ((simResult.eligibleCount / simResult.totalAO) * 100).toFixed(1).replace('.', ',') : 0}%)</td>
+                        <td style={{ fontWeight: 700, color: 'var(--red)', textAlign: 'center' }}>
+                          - {Number((simResult?.totalAO || 0) - (simResult?.eligibleCount || 0))} AO
+                        </td>
+                        <td style={{ fontWeight: 700, color: 'var(--red)', textAlign: 'center' }}>
+                          -{simResult?.totalAO ? (((simResult.totalAO - simResult.eligibleCount) / simResult.totalAO) * 100).toFixed(1).replace('.', ',') : 0}%
                         </td>
                       </tr>
                       <tr>
-                        <td>Rata-rata Insentif per AO</td>
-                        <td>{rupiah(simResult?.totalAO ? simParamsRef.current.budget / simResult.totalAO : 0)}</td>
-                        <td className="good">{rupiah(simResult?.avgInsentifEligible || 0)}</td>
-                        <td className="good">
-                          {rupiah(
-                            (simResult?.avgInsentifEligible || 0) -
-                              (simResult?.totalAO ? simParamsRef.current.budget / simResult.totalAO : 0)
-                          )}
+                        <td style={{ fontWeight: 600, color: 'var(--navy-800)' }}>Rata-rata Insentif</td>
+                        <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(simResult?.totalAO ? simParamsRef.current.budget / simResult.totalAO : 0)}</td>
+                        <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(simResult?.avgInsentifEligible || 0)}</td>
+                        <td style={{ fontWeight: 700, color: 'var(--green-dark)', textAlign: 'center' }}>
+                          + Rp 0
                         </td>
-                        <td className="good">
-                          {simResult?.totalAO && simParamsRef.current.budget > 0
-                            ? (
-                                (((simResult.avgInsentifEligible || 0) - simParamsRef.current.budget / simResult.totalAO) /
-                                  (simParamsRef.current.budget / simResult.totalAO)) *
-                                100
-                              ).toFixed(1) + '%'
-                            : '0.0%'}
+                        <td style={{ fontWeight: 700, color: 'var(--green-dark)', textAlign: 'center' }}>+0,0%</td>
+                      </tr>
+                      <tr>
+                        <td style={{ fontWeight: 600, color: 'var(--navy-800)' }}>Insentif Tertinggi</td>
+                        <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(simResult?.totalAO ? simParamsRef.current.budget / simResult.totalAO : 0)}</td>
+                        <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(simResult?.maxInsentifReceived || 0)}</td>
+                        <td style={{ fontWeight: 700, color: 'var(--green-dark)', textAlign: 'center' }}>
+                          + {rupiah((simResult?.maxInsentifReceived || 0) - (simResult?.totalAO ? simParamsRef.current.budget / simResult.totalAO : 0))}
+                        </td>
+                        <td style={{ fontWeight: 700, color: 'var(--green-dark)', textAlign: 'center' }}>
+                          +{simResult?.totalAO && simParamsRef.current.budget > 0 ? ((((simResult.maxInsentifReceived || 0) - simParamsRef.current.budget / simResult.totalAO) / (simParamsRef.current.budget / simResult.totalAO)) * 100).toFixed(1).replace('.', ',') : '0,0'}%
                         </td>
                       </tr>
                       <tr>
-                        <td>Insentif Tertinggi</td>
-                        <td>{rupiah(simResult?.totalAO ? simParamsRef.current.budget / simResult.totalAO : 0)}</td>
-                        <td className="good">{rupiah(simResult?.maxInsentifReceived || 0)}</td>
-                        <td className="good">
-                          {rupiah(
-                            (simResult?.maxInsentifReceived || 0) -
-                              (simResult?.totalAO ? simParamsRef.current.budget / simResult.totalAO : 0)
-                          )}
+                        <td style={{ fontWeight: 600, color: 'var(--navy-800)' }}>Insentif Terendah</td>
+                        <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(simResult?.totalAO ? simParamsRef.current.budget / simResult.totalAO : 0)}</td>
+                        <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(simResult?.minInsentifReceived || 0)}</td>
+                        <td style={{ fontWeight: 700, color: 'var(--red)', textAlign: 'center' }}>
+                          - {rupiah((simResult?.totalAO ? simParamsRef.current.budget / simResult.totalAO : 0) - (simResult?.minInsentifReceived || 0))}
                         </td>
-                        <td className="good">Max Reward</td>
+                        <td style={{ fontWeight: 700, color: 'var(--red)', textAlign: 'center' }}>
+                          -{simResult?.totalAO && simParamsRef.current.budget > 0 ? ((((simParamsRef.current.budget / simResult.totalAO) - (simResult.minInsentifReceived || 0)) / (simParamsRef.current.budget / simResult.totalAO)) * 100).toFixed(1).replace('.', ',') : '0,0'}%
+                        </td>
                       </tr>
                       <tr>
-                        <td>Insentif Terendah (Eligible)</td>
-                        <td>{rupiah(simResult?.totalAO ? simParamsRef.current.budget / simResult.totalAO : 0)}</td>
-                        <td>{rupiah(simResult?.minInsentifReceived || 0)}</td>
-                        <td>
-                          {rupiah(
-                            (simResult?.minInsentifReceived || 0) -
-                              (simResult?.totalAO ? simParamsRef.current.budget / simResult.totalAO : 0)
-                          )}
+                        <td style={{ fontWeight: 600, color: 'var(--navy-800)' }}>Total Terdistribusi</td>
+                        <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(simParamsRef.current.budget)}</td>
+                        <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(simResult?.totalDispersed || 0)}</td>
+                        <td style={{ fontWeight: 700, color: 'var(--red)', textAlign: 'center' }}>
+                          - {rupiah(simResult?.efficiencyRp || 0)}
                         </td>
-                        <td>Min Reward</td>
+                        <td style={{ fontWeight: 700, color: 'var(--red)', textAlign: 'center' }}>
+                          -{Number(simResult?.efficiencyPct || 0).toFixed(1).replace('.', ',')}%
+                        </td>
+                      </tr>
+                      <tr style={{ background: '#f0fdf4' }}>
+                        <td style={{ fontWeight: 700, color: 'var(--navy-800)' }}>Potensi Efisiensi (Savings)</td>
+                        <td style={{ fontWeight: 700, color: 'var(--blue)', textAlign: 'center' }}>-</td>
+                        <td style={{ fontWeight: 700, color: 'var(--green-dark)', textAlign: 'center' }}>{rupiah(simResult?.efficiencyRp || 0)}</td>
+                        <td style={{ fontWeight: 700, color: 'var(--green-dark)', textAlign: 'center' }}>{rupiah(simResult?.efficiencyRp || 0)}</td>
+                        <td style={{ fontWeight: 700, color: 'var(--green-dark)', textAlign: 'center' }}>{Number(simResult?.efficiencyPct || 0).toFixed(1).replace('.', ',')}%</td>
                       </tr>
                     </tbody>
                   </table>
@@ -1143,30 +1171,25 @@ export default function HomePage() {
               <div className="card">
                 <div className="card-head">
                   <div>
-                    <h3>Insight &amp; Rekomendasi</h3>
+                    <h3 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Sparkles className="w-4 h-4 text-emerald-600" /> Insight &amp; Rekomendasi
+                    </h3>
+                    <div className="card-sub">Dihasilkan otomatis dari data saat ini (diproses langsung di browser Anda)</div>
                   </div>
                 </div>
                 <ul className="insight-list" style={{ marginTop: 10 }}>
-                  <li>
-                    <CheckCircle2 className="w-4 h-4 text-emerald-700 flex-shrink-0 mt-0.5" />
-                    <div><b>{summary.eligiblePct}% AO</b> masuk kategori eligible (Score ≥ {simMinScore}) dan berhak menerima insentif.</div>
-                  </li>
-                  <li>
-                    <CheckCircle2 className="w-4 h-4 text-emerald-700 flex-shrink-0 mt-0.5" />
-                    <div>Skema Performance Pool menghasilkan efisiensi anggaran sebesar <b>{Number(simResult?.efficiencyPct || 0).toFixed(2)}%</b>.</div>
-                  </li>
-                  <li>
-                    <CheckCircle2 className="w-4 h-4 text-emerald-700 flex-shrink-0 mt-0.5" />
-                    <div>Rata-rata insentif per AO sedikit lebih rendah namun distribusi lebih adil dan berbasis kinerja.</div>
-                  </li>
-                  <li>
-                    <CheckCircle2 className="w-4 h-4 text-emerald-700 flex-shrink-0 mt-0.5" />
-                    <div>Top performer menerima insentif hingga <b>6,6x lebih tinggi</b> dari rata-rata.</div>
-                  </li>
-                  <li>
-                    <CheckCircle2 className="w-4 h-4 text-emerald-700 flex-shrink-0 mt-0.5" />
-                    <div>Fokus peningkatan utama: <b>Flowrate (76,40%)</b> agar kontribusi scoring lebih optimal.</div>
-                  </li>
+                  {summary.insights && summary.insights.length > 0 ? (
+                    summary.insights.map((insight: any, i: number) => (
+                      <li key={i} className={insight.type === 'good' ? 'ai-good' : (insight.type === 'warn' ? 'ai-warn' : 'ai-info')}>
+                        <div style={{ fontSize: 14 }}>
+                          {insight.type === 'good' ? '✓' : (insight.type === 'warn' ? '⚠' : '✨')}
+                        </div>
+                        <div dangerouslySetInnerHTML={{ __html: insight.text }}></div>
+                      </li>
+                    ))
+                  ) : (
+                    <li>Belum ada insight.</li>
+                  )}
                 </ul>
               </div>
             </div>

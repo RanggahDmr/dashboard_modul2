@@ -102,15 +102,24 @@ export async function processAoKpiExcel(
     }
 
     // Insert to DB using batches within transaction
-    const BATCH_SIZE = 500;
+    const BATCH_SIZE = 1500;
 
     await prisma.$transaction(async (tx: any) => {
+      await tx.aoKpiPerformance.deleteMany({
+        where: {
+          periode,
+          nama_unit
+        }
+      });
+
       for (let i = 0; i < dataToInsert.length; i += BATCH_SIZE) {
         const batch = dataToInsert.slice(i, i + BATCH_SIZE);
         await tx.aoKpiPerformance.createMany({
           data: batch,
         });
       }
+    }, {
+      timeout: 120000
     });
 
     return {

@@ -124,6 +124,12 @@ select:focus,input:focus{outline:2px solid #2b6fb355;border-color:var(--blue);}
 .comparison-table .savings-row td { background: #f4fbef; border-bottom: none; }
 .insight-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; font-size: 12.5px; }
 .insight-list li { display: flex; gap: 8px; align-items: flex-start; line-height: 1.4; }
+.insight-list li.ai-good { color: var(--navy-800); }
+.insight-list li.ai-good div:first-child { color: var(--green-dark); font-weight: bold; }
+.insight-list li.ai-warn { color: var(--navy-800); }
+.insight-list li.ai-warn div:first-child { color: var(--amber); font-weight: bold; }
+.insight-list li.ai-info { color: var(--navy-800); }
+.insight-list li.ai-info div:first-child { color: var(--blue); font-weight: bold; }
 .insight-list li b { color: var(--navy-800); }
 .card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px;}
 

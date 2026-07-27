@@ -6,18 +6,18 @@ import { RowDataPacket } from 'mysql2/promise';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { 
-      budget = 1000000000, 
-      minScore = 60, 
-      minInsentif = 0, 
-      maxInsentif = null, 
+    const {
+      budget = 1000000000,
+      minScore = 60,
+      minInsentif = 0,
+      maxInsentif = null,
       unit = 'all',
-      periode = '2026-06' 
+      periode = '2026-06'
     } = body;
 
     const w = getUnitWhere(unit, 'p');
     const pool = getPool();
-    
+
     // Ambil semua AO untuk periode tersebut
     const [allRows] = await pool.query<RowDataPacket[]>(`
       SELECT ao_id, total_nilai as score_akhir, ao_id as ao_code, nama_ao as ao_nama, nama_unit as unit_nama
@@ -41,8 +41,10 @@ export async function POST(req: NextRequest) {
     const maxRp = maxInsentif ? Number(maxInsentif) : Infinity;
     const budgetRp = Number(budget) || 0;
 
+    const allocatedBudget = totalAO > 0 ? budgetRp * (eligibleAO.length / totalAO) : 0;
+
     eligibleAO.forEach(r => {
-      let calc = totalScoreEligible > 0 ? (Number(r.score_akhir) / totalScoreEligible) * budgetRp : 0;
+      let calc = totalScoreEligible > 0 ? (Number(r.score_akhir) / totalScoreEligible) * allocatedBudget : 0;
       if (calc < minRp) calc = minRp;
       if (calc > maxRp) calc = maxRp;
       r.insentif = Math.round(calc);
@@ -51,12 +53,11 @@ export async function POST(req: NextRequest) {
 
     // Bucketing untuk chart distribusi insentif
     const buckets = [
-      { label: '< 60 (Not Eligible)', count: 0, min: 0, max: 0, sum: 0, avg: 0 },
-      { label: '60 - 69', count: 0, min: Infinity, max: 0, sum: 0, avg: 0 },
-      { label: '70 - 79', count: 0, min: Infinity, max: 0, sum: 0, avg: 0 },
-      { label: '80 - 89', count: 0, min: Infinity, max: 0, sum: 0, avg: 0 },
-      { label: '90 - 99', count: 0, min: Infinity, max: 0, sum: 0, avg: 0 },
-      { label: '100+', count: 0, min: Infinity, max: 0, sum: 0, avg: 0 },
+      { label: '< 60', count: 0, min: 0, max: 0, sum: 0, avg: 0 },
+      { label: '60-69', count: 0, min: Infinity, max: 0, sum: 0, avg: 0 },
+      { label: '70-79', count: 0, min: Infinity, max: 0, sum: 0, avg: 0 },
+      { label: '80-89', count: 0, min: Infinity, max: 0, sum: 0, avg: 0 },
+      { label: '90-100', count: 0, min: Infinity, max: 0, sum: 0, avg: 0 },
     ];
 
     allRows.forEach(r => {
@@ -66,8 +67,7 @@ export async function POST(req: NextRequest) {
       else if (score < 70) idx = 1;
       else if (score < 80) idx = 2;
       else if (score < 90) idx = 3;
-      else if (score < 100) idx = 4;
-      else idx = 5;
+      else idx = 4;
 
       const b = buckets[idx];
       b.count++;

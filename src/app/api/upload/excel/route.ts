@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { aoKpiUploadSchema } from '@/schemas/ao-kpi-upload.schema';
 import { processAoKpiExcel } from '@/services/ao-kpi-import.service';
 
+export const maxDuration = 300;
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
-    
+
     // Parse form data to object for validation
     const file = formData.get('file');
     const periode = formData.get('periode');
@@ -19,10 +21,10 @@ export async function POST(req: NextRequest) {
     });
 
     if (!validationResult.success) {
-      return NextResponse.json({ 
-        success: false, 
-        message: 'Import failed.', 
-        error: validationResult.error.issues.map((e: any) => e.message).join(', ') 
+      return NextResponse.json({
+        success: false,
+        message: 'Import failed.',
+        error: validationResult.error.issues.map((e: any) => e.message).join(', ')
       }, { status: 400 });
     }
 
@@ -32,10 +34,10 @@ export async function POST(req: NextRequest) {
     // Check extension
     const extension = validFile.name.split('.').pop()?.toLowerCase();
     if (extension !== 'xlsx' && extension !== 'xls') {
-      return NextResponse.json({ 
-        success: false, 
-        message: 'Import failed.', 
-        error: 'Only .xlsx and .xls files are allowed.' 
+      return NextResponse.json({
+        success: false,
+        message: 'Import failed.',
+        error: 'Only .xlsx and .xls files are allowed.'
       }, { status: 400 });
     }
 
@@ -62,10 +64,10 @@ export async function POST(req: NextRequest) {
 
   } catch (err: any) {
     console.error('Error in upload route:', err);
-    return NextResponse.json({ 
-      success: false, 
-      message: 'Import failed.', 
-      error: err.message 
+    return NextResponse.json({
+      success: false,
+      message: 'Import failed.',
+      error: err.message
     }, { status: 500 });
   }
 }
