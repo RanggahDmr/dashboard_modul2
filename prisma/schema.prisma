@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model AoKpiPerformance {
+  id                                     Int       @id @default(autoincrement())
+  periode                                String
+  nama_unit                              String
+  
+  // Excel headers
+  tanggal_tarik                          DateTime?
+  cabang_id                              String?
+  ao_id                                  String?
+  nama_ao                                String?
+  jumlah_noc                             Decimal?  @db.Decimal(15, 2)
+  jumlah_noa                             Decimal?  @db.Decimal(15, 2)
+  os                                     Decimal?  @db.Decimal(15, 2)
+  jumlah_lar                             Decimal?  @db.Decimal(15, 2)
+  jumlah_kelompok                        Decimal?  @db.Decimal(15, 2)
+  penambabahan_lar_baru                  Decimal?  @db.Decimal(15, 2)
+  penambabahan_os_lar_baru               Decimal?  @db.Decimal(15, 2)
+  os_1a_eom                              Decimal?  @db.Decimal(15, 2)
+  target_lar_baru                        Decimal?  @db.Decimal(15, 2)
+  realisasi_persen_lar_baru              Decimal?  @db.Decimal(15, 2)
+  pencapaian_lar_baru                    Decimal?  @db.Decimal(15, 2)
+  bobot_pencapaian_lar_baru              Decimal?  @db.Decimal(15, 2)
+  nilai_pencapaian_lar_baru              Decimal?  @db.Decimal(15, 2)
+  target_ao_s1_harian                    Decimal?  @db.Decimal(15, 2)
+  target_ao_sl_harian                    Decimal?  @db.Decimal(15, 2)
+  realisasi_s1                           Decimal?  @db.Decimal(15, 2)
+  realisasi_sl                           Decimal?  @db.Decimal(15, 2)
+  pencapaian_uk_s1                       Decimal?  @db.Decimal(15, 2)
+  bobot_uk_s1                            Decimal?  @db.Decimal(15, 2)
+  nilai_uk_s1                            Decimal?  @db.Decimal(15, 2)
+  pencapaian_uk_sl                       Decimal?  @db.Decimal(15, 2)
+  bobot_uk_sl                            Decimal?  @db.Decimal(15, 2)
+  nilai_uk_sl                            Decimal?  @db.Decimal(15, 2)
+  persen_hadir_bayar_full_payment        Decimal?  @db.Decimal(15, 2)
+  target_persen_hadir_bayar_full_payment Decimal?  @db.Decimal(15, 2)
+  pencapaian_hadir_bayar_full_payment    Decimal?  @db.Decimal(15, 2)
+  bobot_hadir_bayar_full_payment         Decimal?  @db.Decimal(15, 2)
+  nilai_hadir_bayar_full_payment         Decimal?  @db.Decimal(15, 2)
+  pencairan_s1                           Decimal?  @db.Decimal(15, 2)
+  pencairan_sl                           Decimal?  @db.Decimal(15, 2)
+  persen_pencairan_s1                    Decimal?  @db.Decimal(15, 2)
+  persen_pencairan_sl                    Decimal?  @db.Decimal(15, 2)
+  qualifier_s1                           String?
+  qualifier_sl                           String?
+  pencapaian_uk_s1_new                   Decimal?  @db.Decimal(15, 2)
+  pencapaian_uk_sl_new                   Decimal?  @db.Decimal(15, 2)
+  total_nilai                            Decimal?  @db.Decimal(15, 2)
+
+  created_at                             DateTime  @default(now())
+  updated_at                             DateTime  @updatedAt
+
+  @@map("ao_kpi_performances")
+}
+
+model KpiWeight {
+  id         Int      @id @default(autoincrement())
+  periode    String
+  w_si       Decimal  @db.Decimal(5, 2)
+  w_sl       Decimal  @db.Decimal(5, 2)
+  w_fr       Decimal  @db.Decimal(5, 2)
+  w_fp       Decimal  @db.Decimal(5, 2)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("kpi_weights")
+}
+
+model ScoreThreshold {
+  id          Int      @id @default(autoincrement())
+  description String
+  nominal     Decimal  @db.Decimal(5, 2)
+
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("score_thresholds")
+}
