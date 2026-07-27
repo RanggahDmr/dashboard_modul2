@@ -20,7 +20,16 @@ export async function POST(req: NextRequest) {
 
     // Ambil semua AO untuk periode tersebut
     const [allRows] = await pool.query<RowDataPacket[]>(`
-      SELECT ao_id, total_nilai as score_akhir, ao_id as ao_code, nama_ao as ao_nama, nama_unit as unit_nama
+      SELECT 
+        ao_id, 
+        total_nilai as score_akhir, 
+        ao_id as ao_code, 
+        nama_ao as ao_nama, 
+        nama_unit as unit_nama,
+        nilai_uk_s1 as si_clbk, 
+        nilai_uk_sl as sl, 
+        nilai_pencapaian_lar_baru as flowrate, 
+        nilai_hadir_bayar_full_payment as full_payment
       FROM ao_kpi_performances p
       WHERE p.periode = ? AND ${w.clause}
     `, [periode, ...w.params]);
@@ -41,10 +50,8 @@ export async function POST(req: NextRequest) {
     const maxRp = maxInsentif ? Number(maxInsentif) : Infinity;
     const budgetRp = Number(budget) || 0;
 
-    const allocatedBudget = totalAO > 0 ? budgetRp * (eligibleAO.length / totalAO) : 0;
-
     eligibleAO.forEach(r => {
-      let calc = totalScoreEligible > 0 ? (Number(r.score_akhir) / totalScoreEligible) * allocatedBudget : 0;
+      let calc = totalScoreEligible > 0 ? (Number(r.score_akhir) / totalScoreEligible) * budgetRp : 0;
       if (calc < minRp) calc = minRp;
       if (calc > maxRp) calc = maxRp;
       r.insentif = Math.round(calc);

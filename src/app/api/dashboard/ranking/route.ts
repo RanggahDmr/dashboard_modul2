@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     const sql = `
       SELECT 
         ao_id as ao_code, nama_ao as ao_nama, nama_unit as unit_nama, 
-        realisasi_s1 as si_clbk, realisasi_sl as sl, realisasi_persen_lar_baru as flowrate, persen_hadir_bayar_full_payment as full_payment, 
+        nilai_uk_s1 as si_clbk, nilai_uk_sl as sl, nilai_pencapaian_lar_baru as flowrate, nilai_hadir_bayar_full_payment as full_payment, 
         total_nilai as score_akhir, (${caseSql}) as kategori, nama_unit as unit_id, ao_id
       FROM ao_kpi_performances p
       WHERE p.periode = ? AND ${w.clause}

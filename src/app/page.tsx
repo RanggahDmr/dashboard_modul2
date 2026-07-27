@@ -258,6 +258,9 @@ export default function HomePage() {
       if (res.ok) {
         const data = await res.json();
         setSimResult(data);
+        if (data.topReceivers) {
+          setRankingData(data.topReceivers);
+        }
       }
     } catch (err) {
       console.error('Error running simulation:', err);
@@ -1042,73 +1045,114 @@ export default function HomePage() {
                       </tr>
                     </thead>
                     <tbody>
-                      <tr>
-                        <td style={{ fontWeight: 600, color: 'var(--navy-800)' }}>Total Budget</td>
-                        <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(simParamsRef.current.budget)}</td>
-                        <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(simParamsRef.current.budget)}</td>
-                        <td style={{ fontWeight: 600, color: 'var(--blue)', textAlign: 'center' }}>-</td>
-                        <td style={{ fontWeight: 600, color: 'var(--blue)', textAlign: 'center' }}>-</td>
-                      </tr>
-                      <tr>
-                        <td style={{ fontWeight: 600, color: 'var(--navy-800)' }}>Total AO Eligible</td>
-                        <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{simResult?.totalAO || 0} AO (100%)</td>
-                        <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{simResult?.eligibleCount || 0} AO ({simResult?.totalAO ? ((simResult.eligibleCount / simResult.totalAO) * 100).toFixed(1).replace('.', ',') : 0}%)</td>
-                        <td style={{ fontWeight: 700, color: 'var(--red)', textAlign: 'center' }}>
-                          - {Number((simResult?.totalAO || 0) - (simResult?.eligibleCount || 0))} AO
-                        </td>
-                        <td style={{ fontWeight: 700, color: 'var(--red)', textAlign: 'center' }}>
-                          -{simResult?.totalAO ? (((simResult.totalAO - simResult.eligibleCount) / simResult.totalAO) * 100).toFixed(1).replace('.', ',') : 0}%
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style={{ fontWeight: 600, color: 'var(--navy-800)' }}>Rata-rata Insentif</td>
-                        <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(simResult?.totalAO ? simParamsRef.current.budget / simResult.totalAO : 0)}</td>
-                        <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(simResult?.avgInsentifEligible || 0)}</td>
-                        <td style={{ fontWeight: 700, color: 'var(--green-dark)', textAlign: 'center' }}>
-                          + Rp 0
-                        </td>
-                        <td style={{ fontWeight: 700, color: 'var(--green-dark)', textAlign: 'center' }}>+0,0%</td>
-                      </tr>
-                      <tr>
-                        <td style={{ fontWeight: 600, color: 'var(--navy-800)' }}>Insentif Tertinggi</td>
-                        <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(simResult?.totalAO ? simParamsRef.current.budget / simResult.totalAO : 0)}</td>
-                        <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(simResult?.maxInsentifReceived || 0)}</td>
-                        <td style={{ fontWeight: 700, color: 'var(--green-dark)', textAlign: 'center' }}>
-                          + {rupiah((simResult?.maxInsentifReceived || 0) - (simResult?.totalAO ? simParamsRef.current.budget / simResult.totalAO : 0))}
-                        </td>
-                        <td style={{ fontWeight: 700, color: 'var(--green-dark)', textAlign: 'center' }}>
-                          +{simResult?.totalAO && simParamsRef.current.budget > 0 ? ((((simResult.maxInsentifReceived || 0) - simParamsRef.current.budget / simResult.totalAO) / (simParamsRef.current.budget / simResult.totalAO)) * 100).toFixed(1).replace('.', ',') : '0,0'}%
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style={{ fontWeight: 600, color: 'var(--navy-800)' }}>Insentif Terendah</td>
-                        <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(simResult?.totalAO ? simParamsRef.current.budget / simResult.totalAO : 0)}</td>
-                        <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(simResult?.minInsentifReceived || 0)}</td>
-                        <td style={{ fontWeight: 700, color: 'var(--red)', textAlign: 'center' }}>
-                          - {rupiah((simResult?.totalAO ? simParamsRef.current.budget / simResult.totalAO : 0) - (simResult?.minInsentifReceived || 0))}
-                        </td>
-                        <td style={{ fontWeight: 700, color: 'var(--red)', textAlign: 'center' }}>
-                          -{simResult?.totalAO && simParamsRef.current.budget > 0 ? ((((simParamsRef.current.budget / simResult.totalAO) - (simResult.minInsentifReceived || 0)) / (simParamsRef.current.budget / simResult.totalAO)) * 100).toFixed(1).replace('.', ',') : '0,0'}%
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style={{ fontWeight: 600, color: 'var(--navy-800)' }}>Total Terdistribusi</td>
-                        <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(simParamsRef.current.budget)}</td>
-                        <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(simResult?.totalDispersed || 0)}</td>
-                        <td style={{ fontWeight: 700, color: 'var(--red)', textAlign: 'center' }}>
-                          - {rupiah(simResult?.efficiencyRp || 0)}
-                        </td>
-                        <td style={{ fontWeight: 700, color: 'var(--red)', textAlign: 'center' }}>
-                          -{Number(simResult?.efficiencyPct || 0).toFixed(1).replace('.', ',')}%
-                        </td>
-                      </tr>
-                      <tr style={{ background: '#f0fdf4' }}>
-                        <td style={{ fontWeight: 700, color: 'var(--navy-800)' }}>Potensi Efisiensi (Savings)</td>
-                        <td style={{ fontWeight: 700, color: 'var(--blue)', textAlign: 'center' }}>-</td>
-                        <td style={{ fontWeight: 700, color: 'var(--green-dark)', textAlign: 'center' }}>{rupiah(simResult?.efficiencyRp || 0)}</td>
-                        <td style={{ fontWeight: 700, color: 'var(--green-dark)', textAlign: 'center' }}>{rupiah(simResult?.efficiencyRp || 0)}</td>
-                        <td style={{ fontWeight: 700, color: 'var(--green-dark)', textAlign: 'center' }}>{Number(simResult?.efficiencyPct || 0).toFixed(1).replace('.', ',')}%</td>
-                      </tr>
+                      {(() => {
+                        const tBudget = simParamsRef.current.budget;
+                        const tAO = simResult?.totalAO || 0;
+                        const eAO = simResult?.eligibleCount || 0;
+                        
+                        const lama = {
+                          budget: tBudget,
+                          ao: tAO,
+                          rata: tAO > 0 ? tBudget / tAO : 0,
+                          max: tAO > 0 ? tBudget / tAO : 0,
+                          min: tAO > 0 ? tBudget / tAO : 0,
+                          dist: tBudget
+                        };
+
+                        const baru = {
+                          budget: tBudget,
+                          ao: eAO,
+                          rata: simResult?.avgInsentifEligible || 0,
+                          max: simResult?.maxInsentifReceived || 0,
+                          min: simResult?.minInsentifReceived || 0,
+                          dist: simResult?.totalDispersed || 0,
+                          eff: simResult?.efficiencyRp || 0,
+                          effPct: simResult?.efficiencyPct || 0
+                        };
+
+                        const calcDiff = (b: number, l: number) => ({
+                          selisih: b - l,
+                          pct: l !== 0 ? ((b - l) / l) * 100 : 0
+                        });
+
+                        const diffAO = calcDiff(baru.ao, lama.ao);
+                        const diffRata = calcDiff(baru.rata, lama.rata);
+                        const diffMax = calcDiff(baru.max, lama.max);
+                        const diffMin = calcDiff(baru.min, lama.min);
+                        const diffDist = calcDiff(baru.dist, lama.dist);
+
+                        const renderDiffRp = (val: number) => {
+                          if (val === 0) return <span style={{ color: 'var(--green-dark)' }}>+ Rp 0</span>;
+                          if (val > 0) return <span style={{ color: 'var(--green-dark)' }}>+ {rupiah(val)}</span>;
+                          return <span style={{ color: 'var(--red)' }}>- {rupiah(Math.abs(val))}</span>;
+                        };
+
+                        const renderDiffNum = (val: number, suffix: string) => {
+                          if (val === 0) return <span style={{ color: 'var(--green-dark)' }}>+ 0 {suffix}</span>;
+                          if (val > 0) return <span style={{ color: 'var(--green-dark)' }}>+ {val} {suffix}</span>;
+                          return <span style={{ color: 'var(--red)' }}>- {Math.abs(val)} {suffix}</span>;
+                        };
+
+                        const renderDiffPct = (val: number) => {
+                          if (val === 0) return <span style={{ color: 'var(--green-dark)' }}>+0,0%</span>;
+                          if (val > 0) return <span style={{ color: 'var(--green-dark)' }}>+{val.toFixed(1).replace('.', ',')}%</span>;
+                          return <span style={{ color: 'var(--red)' }}>{val.toFixed(1).replace('.', ',')}%</span>;
+                        };
+
+                        return (
+                          <>
+                            <tr>
+                              <td style={{ fontWeight: 600, color: 'var(--navy-800)' }}>Total Budget</td>
+                              <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(lama.budget)}</td>
+                              <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(baru.budget)}</td>
+                              <td style={{ fontWeight: 600, color: 'var(--blue)', textAlign: 'center' }}>-</td>
+                              <td style={{ fontWeight: 600, color: 'var(--blue)', textAlign: 'center' }}>-</td>
+                            </tr>
+                            <tr>
+                              <td style={{ fontWeight: 600, color: 'var(--navy-800)' }}>Total AO Eligible</td>
+                              <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{lama.ao} AO (100%)</td>
+                              <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{baru.ao} AO ({lama.ao ? ((baru.ao / lama.ao) * 100).toFixed(1).replace('.', ',') : 0}%)</td>
+                              <td style={{ fontWeight: 700, textAlign: 'center' }}>{renderDiffNum(diffAO.selisih, 'AO')}</td>
+                              <td style={{ fontWeight: 700, textAlign: 'center' }}>{renderDiffPct(diffAO.pct)}</td>
+                            </tr>
+                            <tr>
+                              <td style={{ fontWeight: 600, color: 'var(--navy-800)' }}>Rata-rata Insentif</td>
+                              <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(lama.rata)}</td>
+                              <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(baru.rata)}</td>
+                              <td style={{ fontWeight: 700, textAlign: 'center' }}>{renderDiffRp(diffRata.selisih)}</td>
+                              <td style={{ fontWeight: 700, textAlign: 'center' }}>{renderDiffPct(diffRata.pct)}</td>
+                            </tr>
+                            <tr>
+                              <td style={{ fontWeight: 600, color: 'var(--navy-800)' }}>Insentif Tertinggi</td>
+                              <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(lama.max)}</td>
+                              <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(baru.max)}</td>
+                              <td style={{ fontWeight: 700, textAlign: 'center' }}>{renderDiffRp(diffMax.selisih)}</td>
+                              <td style={{ fontWeight: 700, textAlign: 'center' }}>{renderDiffPct(diffMax.pct)}</td>
+                            </tr>
+                            <tr>
+                              <td style={{ fontWeight: 600, color: 'var(--navy-800)' }}>Insentif Terendah</td>
+                              <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(lama.min)}</td>
+                              <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(baru.min)}</td>
+                              <td style={{ fontWeight: 700, textAlign: 'center' }}>{renderDiffRp(diffMin.selisih)}</td>
+                              <td style={{ fontWeight: 700, textAlign: 'center' }}>{renderDiffPct(diffMin.pct)}</td>
+                            </tr>
+                            <tr>
+                              <td style={{ fontWeight: 600, color: 'var(--navy-800)' }}>Total Terdistribusi</td>
+                              <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(lama.dist)}</td>
+                              <td style={{ fontWeight: 600, color: 'var(--navy-800)', textAlign: 'center' }}>{rupiah(baru.dist)}</td>
+                              <td style={{ fontWeight: 700, textAlign: 'center' }}>{renderDiffRp(diffDist.selisih)}</td>
+                              <td style={{ fontWeight: 700, textAlign: 'center' }}>{renderDiffPct(diffDist.pct)}</td>
+                            </tr>
+                            <tr style={{ background: '#f0fdf4' }}>
+                              <td style={{ fontWeight: 700, color: 'var(--navy-800)' }}>Potensi Efisiensi (Savings)</td>
+                              <td style={{ fontWeight: 700, color: 'var(--blue)', textAlign: 'center' }}>-</td>
+                              <td style={{ fontWeight: 700, color: 'var(--green-dark)', textAlign: 'center' }}>{rupiah(baru.eff)}</td>
+                              <td style={{ fontWeight: 700, color: 'var(--green-dark)', textAlign: 'center' }}>{rupiah(baru.eff)}</td>
+                              <td style={{ fontWeight: 700, color: 'var(--green-dark)', textAlign: 'center' }}>{baru.effPct.toFixed(1).replace('.', ',')}%</td>
+                            </tr>
+                          </>
+                        );
+                      })()}
                     </tbody>
                   </table>
                 </div>
