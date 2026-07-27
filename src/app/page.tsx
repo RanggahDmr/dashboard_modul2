@@ -60,11 +60,30 @@ ChartJS.register(
 );
 
 const CATEGORY_COLORS: Record<string, string> = {
-  'Sangat Tinggi': '#1e7a34',
+  'Sangat Tinggi': '#17378fff',
+  'sangat_tinggi': '#17378fff',
   'Tinggi': '#4caf50',
+  'tinggi': '#4caf50',
   'Sedang': '#e3a022',
-  'Rendah': '#d94f3d'
+  'sedang': '#e3a022',
+  'Rendah': '#d94f3d',
+  'rendah': '#d94f3d',
+  'Tidak Memenuhi': '#d94f3d',
+  'tidak_memenuhi': '#d94f3d',
+  'Kurang': '#d94f3d',
+  'kurang': '#d94f3d',
+  'eligible_insentif': '#e3a022'
 };
+
+function formatCategoryLabel(cat: string | undefined | null): string {
+  if (!cat) return 'Tidak Memenuhi';
+  const lower = cat.toString().toLowerCase().replace(/_/g, ' ').trim();
+  if (lower === 'sangat tinggi') return 'Sangat Tinggi';
+  if (lower === 'tinggi') return 'Tinggi';
+  if (lower === 'sedang') return 'Sedang';
+  if (lower === 'rendah' || lower === 'tidak memenuhi' || lower === 'kurang') return 'Tidak Memenuhi';
+  return cat.charAt(0).toUpperCase() + cat.slice(1);
+}
 
 function rupiah(n: number | undefined | null): string {
   const val = Math.round(n || 0);
@@ -532,9 +551,12 @@ export default function HomePage() {
   };
 
   // Chart Data Constructions
-  const donutLabels = chartsData.donut.map(d => d.cat || d.kategori || 'N/A');
+  const donutLabels = chartsData.donut.map(d => formatCategoryLabel(d.cat || d.kategori || 'N/A'));
   const donutCounts = chartsData.donut.map(d => Number(d.c || d.count) || 0);
-  const donutColors = donutLabels.map(cat => CATEGORY_COLORS[cat] || '#2b6fb3');
+  const donutColors = chartsData.donut.map(d => {
+    const rawCat = d.cat || d.kategori || 'N/A';
+    return CATEGORY_COLORS[rawCat] || CATEGORY_COLORS[formatCategoryLabel(rawCat)] || '#2b6fb3';
+  });
 
   const gaugeList = [
     { label: 'SI/CLBK', val: chartsData.gauges.si, weight: `${Math.round(weights.si)}%`, color: '#1e7a34' },
@@ -748,12 +770,14 @@ export default function HomePage() {
                   </div>
                   <div className="legend-row" id="donut-legend">
                     {chartsData.donut.map((item, idx) => {
-                      const cat = item.cat || item.kategori || 'N/A';
+                      const rawCat = item.cat || item.kategori || 'N/A';
+                      const cat = formatCategoryLabel(rawCat);
                       const count = Number(item.c || item.count) || 0;
                       const pct = summary.totalAoAktif ? ((count / summary.totalAoAktif) * 100).toFixed(1) + '%' : '0%';
+                      const color = CATEGORY_COLORS[rawCat] || CATEGORY_COLORS[cat] || '#2b6fb3';
                       return (
                         <div key={idx} className="legend-item">
-                          <span className="legend-dot" style={{ background: CATEGORY_COLORS[cat] || '#2b6fb3' }} />
+                          <span className="legend-dot" style={{ background: color }} />
                           <span>{cat}</span>
                           <span className="cnt">({count} AO)</span>
                           <span className="pct">{pct}</span>
@@ -807,9 +831,9 @@ export default function HomePage() {
                   <div className="chart-box" style={{ flex: 1, height: 210 }}>
                     <Scatter
                       data={{
-                        datasets: ['Sangat Tinggi', 'Tinggi', 'Sedang', 'Rendah'].map(cat => ({
+                        datasets: ['Sangat Tinggi', 'Tinggi', 'Sedang', 'Tidak Memenuhi'].map(cat => ({
                           label: cat,
-                          data: (chartsData.scatter || []).filter(r => r.cat === cat).map(r => ({
+                          data: (chartsData.scatter || []).filter(r => formatCategoryLabel(r.cat) === cat).map(r => ({
                             x: Number(r.flowrate) || 0,
                             y: Number(r.score_akhir) || 0,
                             nama: r.nama
@@ -837,11 +861,11 @@ export default function HomePage() {
                       }}
                     />
                   </div>
-                  <div className="legend-row" style={{ width: 'auto', flexShrink: 0 }}>
-                    {['Sangat Tinggi', 'Tinggi', 'Sedang', 'Rendah'].map(cat => (
-                      <div key={cat} className="legend-item">
+                  <div className="legend-row" style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: '16px', width: '100%', marginTop: '4px' }}>
+                    {['Sangat Tinggi', 'Tinggi', 'Sedang', 'Tidak Memenuhi'].map(cat => (
+                      <div key={cat} className="legend-item" style={{ width: 'auto' }}>
                         <span className="legend-dot" style={{ background: CATEGORY_COLORS[cat] || '#2b6fb3' }} />
-                        <span>{cat}</span>
+                        <span style={{ fontWeight: 600, color: 'var(--navy-800)', whiteSpace: 'nowrap' }}>{cat}</span>
                       </div>
                     ))}
                   </div>
@@ -936,22 +960,30 @@ export default function HomePage() {
                     <h3>Hasil Simulasi Distribusi Insentif (Performance Pool)</h3>
                   </div>
                 </div>
-                <div className="sim-summary" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginTop: 12, marginBottom: 16 }}>
-                  <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <b style={{ fontSize: '22px', color: '#1e293b', lineHeight: 1.2 }}>{(simResult?.eligibleCount || 0).toLocaleString('id-ID')}<br/>AO</b>
-                    <span style={{ fontSize: '11px', color: '#64748b', marginTop: '12px', lineHeight: 1.2 }}>Total Penerima (Eligible)</span>
+                <div className="sim-summary" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginTop: 12, marginBottom: 16 }}>
+                  <div style={{ padding: '14px 16px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 600 }}>Total Penerima (Eligible)</span>
+                    <div style={{ fontSize: '20px', fontWeight: 800, color: '#0e3159', marginTop: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {(simResult?.eligibleCount || 0).toLocaleString('id-ID')} <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>AO</span>
+                    </div>
                   </div>
-                  <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <b style={{ fontSize: '22px', color: '#1e293b', lineHeight: 1.2, wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>{rupiah(simResult?.totalDispersed || 0).replace('Rp ', 'Rp\n')}</b>
-                    <span style={{ fontSize: '11px', color: '#64748b', marginTop: '12px', lineHeight: 1.2 }}>Total Insentif Terdistribusi</span>
+                  <div style={{ padding: '14px 16px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 600 }}>Total Insentif Terdistribusi</span>
+                    <div style={{ fontSize: '19px', fontWeight: 800, color: '#166534', marginTop: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={rupiah(simResult?.totalDispersed || 0)}>
+                      {rupiah(simResult?.totalDispersed || 0)}
+                    </div>
                   </div>
-                  <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <b style={{ fontSize: '22px', color: '#1e293b', lineHeight: 1.2, wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>{rupiah(simResult?.avgInsentifEligible || 0).replace('Rp ', 'Rp\n')}</b>
-                    <span style={{ fontSize: '11px', color: '#64748b', marginTop: '12px', lineHeight: 1.2 }}>Rata-rata Insentif</span>
+                  <div style={{ padding: '14px 16px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 600 }}>Rata-rata Insentif per AO</span>
+                    <div style={{ fontSize: '19px', fontWeight: 800, color: '#0f7c8a', marginTop: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={rupiah(simResult?.avgInsentifEligible || 0)}>
+                      {rupiah(simResult?.avgInsentifEligible || 0)}
+                    </div>
                   </div>
-                  <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <b style={{ fontSize: '22px', color: '#1e293b', lineHeight: 1.2, wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>{rupiah(simResult?.efficiencyRp || 0).replace('Rp ', 'Rp\n')}</b>
-                    <span style={{ fontSize: '11px', color: '#64748b', marginTop: '12px', lineHeight: 1.2 }}>Potensi Efisiensi (Saving)</span>
+                  <div style={{ padding: '14px 16px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 600 }}>Potensi Efisiensi (Saving)</span>
+                    <div style={{ fontSize: '19px', fontWeight: 800, color: '#6a4fa0', marginTop: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={rupiah(simResult?.efficiencyRp || 0)}>
+                      {rupiah(simResult?.efficiencyRp || 0)}
+                    </div>
                   </div>
                 </div>
                 <div>
@@ -1490,10 +1522,10 @@ export default function HomePage() {
                     onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
                   >
                     <option value="all">Semua Kategori</option>
-                    <option value="Sangat Tinggi">Sangat Tinggi</option>
-                    <option value="Tinggi">Tinggi</option>
-                    <option value="Sedang">Sedang</option>
-                    <option value="Rendah">Rendah</option>
+                    <option value="sangat_tinggi">Sangat Tinggi</option>
+                    <option value="tinggi">Tinggi</option>
+                    <option value="sedang">Sedang</option>
+                    <option value="Tidak Memenuhi">Tidak Memenuhi</option>
                   </select>
                 </div>
               </div>
@@ -1522,8 +1554,9 @@ export default function HomePage() {
                     ) : (
                       aoList.map((ao) => {
                         let badgeClass = 'badge-amber';
-                        if (ao.cat === 'Sangat Tinggi' || ao.cat === 'Tinggi') badgeClass = 'badge-green';
-                        if (ao.cat === 'Rendah') badgeClass = 'badge-red';
+                        const displayCat = formatCategoryLabel(ao.cat);
+                        if (displayCat === 'Sangat Tinggi' || displayCat === 'Tinggi') badgeClass = 'badge-green';
+                        if (displayCat === 'Tidak Memenuhi' || displayCat === 'Rendah') badgeClass = 'badge-red';
 
                         return (
                           <tr key={ao.perf_id || ao.id}>
@@ -1535,7 +1568,7 @@ export default function HomePage() {
                             <td>{ao.flowrate}%</td>
                             <td>{ao.full_payment}%</td>
                             <td><b>{ao.score_akhir}</b></td>
-                            <td><span className={`badge ${badgeClass}`}>{ao.cat}</span></td>
+                            <td><span className={`badge ${badgeClass}`}>{displayCat}</span></td>
                             <td>
                               <div className="flex items-center gap-1">
                                 <button
