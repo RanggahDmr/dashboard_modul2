@@ -6,8 +6,8 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function getUnitWhere(unitId: string | null | undefined, alias = 'p') {
-  if (!unitId || unitId === 'all') return { clause: '1=1', params: [] as number[] };
-  return { clause: `${alias}.unit_id = ?`, params: [parseInt(unitId, 10)] };
+  if (!unitId || unitId === 'all') return { clause: '1=1', params: [] as (string | number)[] };
+  return { clause: `${alias}.nama_unit = ?`, params: [unitId] };
 }
 
 export function formatRupiah(num: number): string {

@@ -11,7 +11,7 @@ export async function processAoKpiExcel(
     const workbook = xlsx.read(buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
-    
+
     // Convert to JSON, treat first row as header, defval null
     const rows: AoKpiExcelRow[] = xlsx.utils.sheet_to_json(sheet, { defval: null });
 
@@ -103,7 +103,7 @@ export async function processAoKpiExcel(
 
     // Insert to DB using batches within transaction
     const BATCH_SIZE = 500;
-    
+
     await prisma.$transaction(async (tx: any) => {
       for (let i = 0; i < dataToInsert.length; i += BATCH_SIZE) {
         const batch = dataToInsert.slice(i, i + BATCH_SIZE);

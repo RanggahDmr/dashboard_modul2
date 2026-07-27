@@ -14,15 +14,21 @@ export async function GET(req: NextRequest) {
     const w = getUnitWhere(unit, 'p');
     const pool = getPool();
     
+    const [tRows] = await pool.query<RowDataPacket[]>("SELECT description, nominal FROM score_thresholds ORDER BY nominal DESC");
+    let caseSql = "CASE ";
+    tRows.forEach((t) => {
+      caseSql += `WHEN total_nilai >= ${Number(t.nominal)} THEN '${t.description}' `;
+    });
+    caseSql += "ELSE 'Tidak Memenuhi' END";
+
     const sql = `
       SELECT 
-        m.ao_code, m.nama as ao_nama, u.nama as unit_nama, 
-        p.si_clbk, p.sl, p.flowrate, p.full_payment, p.score_akhir, p.kategori, p.unit_id, p.ao_id
-      FROM ao_performance_monthly p
-      JOIN ao_master m ON p.ao_id = m.id
-      JOIN units u ON p.unit_id = u.id
+        ao_id as ao_code, nama_ao as ao_nama, nama_unit as unit_nama, 
+        realisasi_s1 as si_clbk, realisasi_sl as sl, realisasi_persen_lar_baru as flowrate, persen_hadir_bayar_full_payment as full_payment, 
+        total_nilai as score_akhir, (${caseSql}) as kategori, nama_unit as unit_id, ao_id
+      FROM ao_kpi_performances p
       WHERE p.periode = ? AND ${w.clause}
-      ORDER BY p.score_akhir DESC
+      ORDER BY total_nilai DESC
       LIMIT ?
     `;
     const [rows] = await pool.query<RowDataPacket[]>(sql, [periode, ...w.params, limitNum]);
@@ -31,8 +37,8 @@ export async function GET(req: NextRequest) {
     for (let r of rows) {
       const [rankRows] = await pool.query<RowDataPacket[]>(`
         SELECT COUNT(*) + 1 as unit_rank
-        FROM ao_performance_monthly
-        WHERE periode = ? AND unit_id = ? AND score_akhir > ?
+        FROM ao_kpi_performances
+        WHERE periode = ? AND nama_unit = ? AND total_nilai > ?
       `, [periode, r.unit_id, r.score_akhir]);
       r.unit_rank = rankRows[0]?.unit_rank || 1;
     }

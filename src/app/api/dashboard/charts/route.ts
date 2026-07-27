@@ -12,23 +12,32 @@ export async function GET(req: NextRequest) {
     const pool = getPool();
     const params = [periode, ...w.params];
 
+    // Fetch dynamic thresholds
+    const [tRows] = await pool.query<RowDataPacket[]>("SELECT description, nominal FROM score_thresholds ORDER BY nominal DESC");
+    let caseSql = "CASE ";
+    tRows.forEach((t) => {
+      caseSql += `WHEN total_nilai >= ${Number(t.nominal)} THEN '${t.description}' `;
+    });
+    // Find lowest threshold to use as a baseline, anything below is 'Kurang' or similar
+    caseSql += "ELSE 'Tidak Memenuhi' END";
+
     // 1. Donut chart (Per Kategori)
     const donutSql = `
-      SELECT kategori as cat, COUNT(*) as c 
-      FROM ao_performance_monthly p 
+      SELECT (${caseSql}) as cat, COUNT(*) as c 
+      FROM ao_kpi_performances p 
       WHERE p.periode = ? AND ${w.clause}
-      GROUP BY kategori
+      GROUP BY cat
     `;
     const [donutRows] = await pool.query<RowDataPacket[]>(donutSql, params);
 
     // 2. Gauges (Rata-rata 4 KPI)
     const gaugeSql = `
       SELECT 
-        AVG(si_clbk) as si, 
-        AVG(sl) as sl, 
-        AVG(flowrate) as fr, 
-        AVG(full_payment) as fp 
-      FROM ao_performance_monthly p 
+        AVG(realisasi_s1) as si, 
+        AVG(realisasi_sl) as sl, 
+        AVG(realisasi_persen_lar_baru) as fr, 
+        AVG(persen_hadir_bayar_full_payment) as fp 
+      FROM ao_kpi_performances p 
       WHERE p.periode = ? AND ${w.clause}
     `;
     const [gaugeRows] = await pool.query<RowDataPacket[]>(gaugeSql, params);
@@ -36,9 +45,8 @@ export async function GET(req: NextRequest) {
 
     // 3. Scatter plot data
     const scatterSql = `
-      SELECT m.nama, p.si_clbk, p.sl, p.flowrate, p.full_payment, p.score_akhir, p.kategori as cat
-      FROM ao_performance_monthly p
-      JOIN ao_master m ON p.ao_id = m.id
+      SELECT nama_ao as nama, realisasi_s1 as si_clbk, realisasi_sl as sl, realisasi_persen_lar_baru as flowrate, persen_hadir_bayar_full_payment as full_payment, total_nilai as score_akhir, (${caseSql}) as cat
+      FROM ao_kpi_performances p
       WHERE p.periode = ? AND ${w.clause}
       LIMIT 1000
     `;

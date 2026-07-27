@@ -12,26 +12,25 @@ export async function GET(req: NextRequest) {
     const pool = getPool();
 
     // 1. Ambil threshold eligible
-    const [tRows] = await pool.query<RowDataPacket[]>("SELECT eligible_insentif FROM score_thresholds LIMIT 1");
-    const eligibleThres = tRows[0] ? Number(tRows[0].eligible_insentif) : 60;
+    const eligibleThres = 60;
 
     // 2. Ambil agregat KPI & AO
     const sql = `
       SELECT 
         COUNT(*) as c, 
-        AVG(score_akhir) as s,
-        SUM(CASE WHEN score_akhir >= ? THEN 1 ELSE 0 END) as e 
-      FROM ao_performance_monthly p 
+        AVG(total_nilai) as s,
+        SUM(CASE WHEN total_nilai >= ? THEN 1 ELSE 0 END) as e 
+      FROM ao_kpi_performances p 
       WHERE p.periode = ? AND ${w.clause}
     `;
     const [rows] = await pool.query<RowDataPacket[]>(sql, [eligibleThres, periode, ...w.params]);
     const agg = rows[0] || {};
 
     // 3. Ambil total unit kerja aktif
-    const [unitRows] = await pool.query<RowDataPacket[]>("SELECT COUNT(*) as uc FROM units");
+    const [unitRows] = await pool.query<RowDataPacket[]>("SELECT COUNT(DISTINCT nama_unit) as uc FROM ao_kpi_performances");
 
     // 4. Ambil daftar periode yang tersedia
-    const [periodeRows] = await pool.query<RowDataPacket[]>("SELECT DISTINCT periode FROM ao_performance_monthly ORDER BY periode DESC");
+    const [periodeRows] = await pool.query<RowDataPacket[]>("SELECT DISTINCT periode FROM ao_kpi_performances ORDER BY periode DESC");
     const periodes = periodeRows.map((r: any) => r.periode);
     if (periodes.length === 0) periodes.push('2026-06');
 

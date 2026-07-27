@@ -20,10 +20,8 @@ export async function POST(req: NextRequest) {
     
     // Ambil semua AO untuk periode tersebut
     const [allRows] = await pool.query<RowDataPacket[]>(`
-      SELECT p.ao_id, p.score_akhir, m.ao_code, m.nama as ao_nama, u.nama as unit_nama
-      FROM ao_performance_monthly p
-      JOIN ao_master m ON p.ao_id = m.id
-      JOIN units u ON p.unit_id = u.id
+      SELECT ao_id, total_nilai as score_akhir, ao_id as ao_code, nama_ao as ao_nama, nama_unit as unit_nama
+      FROM ao_kpi_performances p
       WHERE p.periode = ? AND ${w.clause}
     `, [periode, ...w.params]);
 

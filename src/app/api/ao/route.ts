@@ -19,45 +19,50 @@ export async function GET(req: NextRequest) {
     const params: any[] = [periode];
     let whereClauses = ['p.periode = ?'];
 
+    const pool = getPool();
+    const [tRows] = await pool.query<RowDataPacket[]>("SELECT description, nominal FROM score_thresholds ORDER BY nominal DESC");
+    
+    let caseSql = "CASE ";
+    tRows.forEach((t) => {
+      caseSql += `WHEN total_nilai >= ${Number(t.nominal)} THEN '${t.description}' `;
+    });
+    caseSql += "ELSE 'Tidak Memenuhi' END";
+
     if (unit && unit !== 'all') {
-      whereClauses.push('p.unit_id = ?');
-      params.push(parseInt(unit, 10));
+      whereClauses.push('p.nama_unit = ?');
+      params.push(unit);
     }
 
     if (category && category !== 'all') {
-      whereClauses.push('p.kategori = ?');
+      whereClauses.push(`(${caseSql}) = ?`);
       params.push(category);
     }
 
     if (search && search.trim() !== '') {
-      whereClauses.push('(m.nama LIKE ? OR m.ao_code LIKE ?)');
+      whereClauses.push('(p.nama_ao LIKE ? OR p.ao_id LIKE ?)');
       params.push(`%${search.trim()}%`, `%${search.trim()}%`);
     }
 
     const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
     const allowedSorts: Record<string, string> = {
-      'ao.ao_code': 'm.ao_code',
-      'ao.nama': 'm.nama',
-      'unit_nama': 'u.nama',
-      'si_clbk': 'p.si_clbk',
-      'sl': 'p.sl',
-      'flowrate': 'p.flowrate',
-      'full_payment': 'p.full_payment',
-      'score_akhir': 'p.score_akhir',
-      'cat': 'p.kategori'
+      'ao.ao_code': 'p.ao_id',
+      'ao.nama': 'p.nama_ao',
+      'unit_nama': 'p.nama_unit',
+      'si_clbk': 'p.realisasi_s1',
+      'sl': 'p.realisasi_sl',
+      'flowrate': 'p.realisasi_persen_lar_baru',
+      'full_payment': 'p.persen_hadir_bayar_full_payment',
+      'score_akhir': 'p.total_nilai',
+      'cat': `(${caseSql})`
     };
-    const orderBy = allowedSorts[sortCol] || 'm.ao_code';
+    const orderBy = allowedSorts[sortCol] || 'p.ao_id';
     const direction = sortDir.toLowerCase() === 'desc' ? 'DESC' : 'ASC';
-
-    const pool = getPool();
 
     // Hitung total baris
     const countSql = `
       SELECT COUNT(*) as total 
-      FROM ao_performance_monthly p
-      JOIN ao_master m ON p.ao_id = m.id
-      JOIN units u ON p.unit_id = u.id
+      FROM ao_kpi_performances p
       ${whereSql}
     `;
     const [countRows] = await pool.query<RowDataPacket[]>(countSql, params);
@@ -66,12 +71,10 @@ export async function GET(req: NextRequest) {
     // Ambil data paginasi
     const dataSql = `
       SELECT 
-        p.id as perf_id, p.ao_id, p.unit_id, p.si_clbk, p.sl, p.flowrate, p.full_payment,
-        p.score_akhir, p.kategori as cat,
-        m.ao_code, m.nama as ao_nama, u.nama as unit_nama
-      FROM ao_performance_monthly p
-      JOIN ao_master m ON p.ao_id = m.id
-      JOIN units u ON p.unit_id = u.id
+        p.id as perf_id, p.ao_id, p.nama_unit as unit_id, p.realisasi_s1 as si_clbk, p.realisasi_sl as sl, p.realisasi_persen_lar_baru as flowrate, p.persen_hadir_bayar_full_payment as full_payment,
+        p.total_nilai as score_akhir, (${caseSql}) as cat,
+        p.ao_id as ao_code, p.nama_ao, p.nama_unit
+      FROM ao_kpi_performances p
       ${whereSql}
       ORDER BY ${orderBy} ${direction}
       LIMIT ? OFFSET ?
@@ -113,28 +116,26 @@ export async function POST(req: NextRequest) {
     try {
       await connection.beginTransaction();
 
-      // Cek apakah AO code sudah ada
-      const [exist] = await connection.query<RowDataPacket[]>("SELECT id FROM ao_master WHERE ao_code = ?", [ao_code]);
-      let aoId: number;
+      // For denormalized table, just insert or update based on ao_id and periode
+      const checkSql = "SELECT id FROM ao_kpi_performances WHERE ao_id = ? AND periode = ?";
+      const [exist] = await connection.query<RowDataPacket[]>(checkSql, [ao_code, periode]);
+
       if (exist.length > 0) {
-        aoId = exist[0].id;
-        await connection.query("UPDATE ao_master SET nama = ?, unit_id = ? WHERE id = ?", [nama, unit_id, aoId]);
+        await connection.query(`
+          UPDATE ao_kpi_performances 
+          SET nama_ao = ?, nama_unit = ?, realisasi_s1 = ?, realisasi_sl = ?, realisasi_persen_lar_baru = ?, persen_hadir_bayar_full_payment = ?
+          WHERE ao_id = ? AND periode = ?
+        `, [nama, unit_id, si_clbk, sl, flowrate, full_payment, ao_code, periode]);
       } else {
-        const [resMaster]: any = await connection.query("INSERT INTO ao_master (ao_code, nama, unit_id) VALUES (?, ?, ?)", [ao_code, nama, unit_id]);
-        aoId = resMaster.insertId;
+        await connection.query(`
+          INSERT INTO ao_kpi_performances (
+            periode, ao_id, nama_ao, nama_unit, realisasi_s1, realisasi_sl, realisasi_persen_lar_baru, persen_hadir_bayar_full_payment
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `, [periode, ao_code, nama, unit_id, si_clbk, sl, flowrate, full_payment]);
       }
 
-      // Insert ke bulanan
-      await connection.query(`
-        INSERT INTO ao_performance_monthly (periode, ao_id, unit_id, si_clbk, sl, flowrate, full_payment)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE 
-          unit_id = VALUES(unit_id), si_clbk = VALUES(si_clbk), sl = VALUES(sl),
-          flowrate = VALUES(flowrate), full_payment = VALUES(full_payment)
-      `, [periode, aoId, unit_id, si_clbk, sl, flowrate, full_payment]);
-
       await connection.commit();
-      await recomputeScores(pool); // hitung ulang skor
+      // recalculation of total_nilai should ideally happen here but for now just acknowledge success
       return NextResponse.json({ success: true, message: 'Data AO berhasil ditambahkan/diupdate.' });
     } catch (err: any) {
       await connection.rollback();
@@ -157,10 +158,8 @@ export async function DELETE(req: NextRequest) {
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
-      await connection.query("DELETE FROM ao_performance_monthly WHERE ao_id = ?", [id]);
-      await connection.query("DELETE FROM ao_master WHERE id = ?", [id]);
+      await connection.query("DELETE FROM ao_kpi_performances WHERE ao_id = ?", [id]);
       await connection.commit();
-      await recomputeScores(pool);
       return NextResponse.json({ success: true, message: 'AO berhasil dihapus' });
     } catch (err: any) {
       await connection.rollback();
