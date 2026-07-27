@@ -149,7 +149,7 @@ export default function HomePage() {
     maxInsentif: simMaxInsentif
   });
   simParamsRef.current = {
-    budget: simBudget,
+    budget: selectedUnit === 'all' ? simBudget : simUnitBudget,
     minScore: simMinScore,
     minInsentif: simMinInsentif,
     maxInsentif: simMaxInsentif
@@ -1014,14 +1014,14 @@ export default function HomePage() {
                     <tbody>
                       <tr>
                         <td>Total Budget</td>
-                        <td>{rupiah(simBudget)}</td>
-                        <td>{rupiah(simBudget)}</td>
+                        <td>{rupiah(simParamsRef.current.budget)}</td>
+                        <td>{rupiah(simParamsRef.current.budget)}</td>
                         <td>Rp 0</td>
                         <td>0.00%</td>
                       </tr>
                       <tr>
                         <td>Total Insentif Tersalurkan</td>
-                        <td>{rupiah(simBudget)}</td>
+                        <td>{rupiah(simParamsRef.current.budget)}</td>
                         <td className="good">{rupiah(simResult?.totalDispersed || 0)}</td>
                         <td className="good">{rupiah(simResult?.efficiencyRp || 0)}</td>
                         <td className="good">-{Number(simResult?.efficiencyPct || 0).toFixed(2)}%</td>
@@ -1037,19 +1037,19 @@ export default function HomePage() {
                       </tr>
                       <tr>
                         <td>Rata-rata Insentif per AO</td>
-                        <td>{rupiah(simResult?.totalAO ? simBudget / simResult.totalAO : 0)}</td>
+                        <td>{rupiah(simResult?.totalAO ? simParamsRef.current.budget / simResult.totalAO : 0)}</td>
                         <td className="good">{rupiah(simResult?.avgInsentifEligible || 0)}</td>
                         <td className="good">
                           {rupiah(
                             (simResult?.avgInsentifEligible || 0) -
-                              (simResult?.totalAO ? simBudget / simResult.totalAO : 0)
+                              (simResult?.totalAO ? simParamsRef.current.budget / simResult.totalAO : 0)
                           )}
                         </td>
                         <td className="good">
-                          {simResult?.totalAO && simBudget > 0
+                          {simResult?.totalAO && simParamsRef.current.budget > 0
                             ? (
-                                (((simResult.avgInsentifEligible || 0) - simBudget / simResult.totalAO) /
-                                  (simBudget / simResult.totalAO)) *
+                                (((simResult.avgInsentifEligible || 0) - simParamsRef.current.budget / simResult.totalAO) /
+                                  (simParamsRef.current.budget / simResult.totalAO)) *
                                 100
                               ).toFixed(1) + '%'
                             : '0.0%'}
@@ -1057,24 +1057,24 @@ export default function HomePage() {
                       </tr>
                       <tr>
                         <td>Insentif Tertinggi</td>
-                        <td>{rupiah(simResult?.totalAO ? simBudget / simResult.totalAO : 0)}</td>
+                        <td>{rupiah(simResult?.totalAO ? simParamsRef.current.budget / simResult.totalAO : 0)}</td>
                         <td className="good">{rupiah(simResult?.maxInsentifReceived || 0)}</td>
                         <td className="good">
                           {rupiah(
                             (simResult?.maxInsentifReceived || 0) -
-                              (simResult?.totalAO ? simBudget / simResult.totalAO : 0)
+                              (simResult?.totalAO ? simParamsRef.current.budget / simResult.totalAO : 0)
                           )}
                         </td>
                         <td className="good">Max Reward</td>
                       </tr>
                       <tr>
                         <td>Insentif Terendah (Eligible)</td>
-                        <td>{rupiah(simResult?.totalAO ? simBudget / simResult.totalAO : 0)}</td>
+                        <td>{rupiah(simResult?.totalAO ? simParamsRef.current.budget / simResult.totalAO : 0)}</td>
                         <td>{rupiah(simResult?.minInsentifReceived || 0)}</td>
                         <td>
                           {rupiah(
                             (simResult?.minInsentifReceived || 0) -
-                              (simResult?.totalAO ? simBudget / simResult.totalAO : 0)
+                              (simResult?.totalAO ? simParamsRef.current.budget / simResult.totalAO : 0)
                           )}
                         </td>
                         <td>Min Reward</td>
