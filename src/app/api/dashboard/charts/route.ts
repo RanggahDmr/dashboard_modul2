@@ -33,10 +33,10 @@ export async function GET(req: NextRequest) {
     // 2. Gauges (Rata-rata 4 KPI)
     const gaugeSql = `
       SELECT 
-        AVG(LEAST(120, GREATEST(0, pencapaian_uk_s1))) as si, 
-        AVG(LEAST(120, GREATEST(0, pencapaian_uk_sl))) as sl, 
-        AVG(LEAST(120, GREATEST(0, pencapaian_lar_baru))) as fr, 
-        AVG(LEAST(120, GREATEST(0, pencapaian_hadir_bayar_full_payment))) as fp 
+        AVG(GREATEST(0, pencapaian_uk_s1)) as si, 
+        AVG(GREATEST(0, pencapaian_uk_sl)) as sl, 
+        AVG(GREATEST(0, pencapaian_lar_baru)) as fr, 
+        AVG(GREATEST(0, pencapaian_hadir_bayar_full_payment)) as fp 
       FROM ao_kpi_performances p 
       WHERE p.periode = ? AND ${w.clause}
     `;
@@ -47,10 +47,10 @@ export async function GET(req: NextRequest) {
     const scatterSql = `
       SELECT 
         nama_ao as nama, 
-        LEAST(120, GREATEST(0, pencapaian_uk_s1)) as si_clbk, 
-        LEAST(120, GREATEST(0, pencapaian_uk_sl)) as sl, 
-        LEAST(120, GREATEST(0, pencapaian_lar_baru)) as flowrate, 
-        LEAST(120, GREATEST(0, pencapaian_hadir_bayar_full_payment)) as full_payment, 
+        GREATEST(0, pencapaian_uk_s1) as si_clbk, 
+        GREATEST(0, pencapaian_uk_sl) as sl, 
+        GREATEST(0, pencapaian_lar_baru) as flowrate, 
+        GREATEST(0, pencapaian_hadir_bayar_full_payment) as full_payment, 
         total_nilai as score_akhir, 
         (${caseSql}) as cat
       FROM ao_kpi_performances p

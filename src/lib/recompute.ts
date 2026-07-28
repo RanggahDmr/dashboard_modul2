@@ -21,10 +21,10 @@ export async function recomputeScores(dbPool: Pool): Promise<void> {
     
     await connection.beginTransaction();
     for (const row of perfRows) {
-      const si = Math.min(120, Math.max(0, Number(row.pencapaian_uk_s1) || 0));
-      const sl = Math.min(120, Math.max(0, Number(row.pencapaian_uk_sl) || 0));
-      const fr = Math.min(120, Math.max(0, Number(row.pencapaian_lar_baru) || 0));
-      const fp = Math.min(120, Math.max(0, Number(row.pencapaian_hadir_bayar_full_payment) || 0));
+      const si = Math.max(0, Number(row.pencapaian_uk_s1) || 0);
+      const sl = Math.max(0, Number(row.pencapaian_uk_sl) || 0);
+      const fr = Math.max(0, Number(row.pencapaian_lar_baru) || 0);
+      const fp = Math.max(0, Number(row.pencapaian_hadir_bayar_full_payment) || 0);
 
       const score = (si * w_si) + (sl * w_sl) + (fr * w_fr) + (fp * w_fp);
       const roundedScore = Math.round(score * 100) / 100;

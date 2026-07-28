@@ -26,10 +26,10 @@ export async function POST(req: NextRequest) {
         ao_id as ao_code, 
         nama_ao as ao_nama, 
         nama_unit as unit_nama,
-        nilai_uk_s1 as si_clbk, 
-        nilai_uk_sl as sl, 
-        nilai_pencapaian_lar_baru as flowrate, 
-        nilai_hadir_bayar_full_payment as full_payment
+        pencapaian_uk_s1 as si_clbk, 
+        pencapaian_uk_sl as sl, 
+        pencapaian_lar_baru as flowrate, 
+        pencapaian_hadir_bayar_full_payment as full_payment
       FROM ao_kpi_performances p
       WHERE p.periode = ? AND ${w.clause}
     `, [periode, ...w.params]);

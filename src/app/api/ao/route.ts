@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
     // Ambil data paginasi
     const dataSql = `
       SELECT 
-        p.id as perf_id, p.ao_id, p.nama_unit as unit_id, p.nilai_uk_s1 as si_clbk, p.nilai_uk_sl as sl, p.nilai_pencapaian_lar_baru as flowrate, p.nilai_hadir_bayar_full_payment as full_payment,
+        p.id as perf_id, p.ao_id, p.nama_unit as unit_id, p.pencapaian_uk_s1 as si_clbk, p.pencapaian_uk_sl as sl, p.pencapaian_lar_baru as flowrate, p.pencapaian_hadir_bayar_full_payment as full_payment,
         p.total_nilai as score_akhir, (${caseSql}) as cat,
         p.ao_id as ao_code, p.nama_ao, p.nama_unit
       FROM ao_kpi_performances p

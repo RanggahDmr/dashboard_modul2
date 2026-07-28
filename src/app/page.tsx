@@ -796,12 +796,12 @@ export default function HomePage() {
                 <div className="card-head">
                   <div>
                     <h3>Performa Berdasarkan 4 KPI Utama</h3>
-                    <div className="card-sub">Rata-rata pencapaian (dibatasi 0–120%)</div>
+                    <div className="card-sub">Rata-rata pencapaian</div>
                   </div>
                 </div>
                 <div className="gauge-grid" id="gauge-grid">
                   {gaugeList.map((g, idx) => {
-                    const pct = Math.min(100, Math.max(0, (g.val / 120) * 100));
+                    const pct = Math.min(100, Math.max(0, g.val));
                     return (
                       <div key={idx} className="gauge-item">
                         <div className="glabel">{g.label}</div>
