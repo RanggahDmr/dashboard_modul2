@@ -189,7 +189,6 @@ export default function HomePage() {
 
   // Upload Excel State
   const [uploadPeriode, setUploadPeriode] = useState('2026-06');
-  const [uploadNamaUnit, setUploadNamaUnit] = useState('Unit Bandung');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(false);
   const [uploadResult, setUploadResult] = useState('');
@@ -399,6 +398,7 @@ export default function HomePage() {
       });
       if (res.ok) {
         showToastMsg('💾 Bobot berhasil disimpan & dihitung ulang!');
+        window.alert('Berhasil disimpan & hitung ulang!');
         fetchAllData();
       } else {
         const err = await res.json();
@@ -413,7 +413,7 @@ export default function HomePage() {
   const handleSaveThresholds = async () => {
     try {
       const res = await fetch('/api/config/thresholds', {
-        method: 'POST',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sangat_tinggi: thresholds.sangatTinggi,
@@ -424,6 +424,7 @@ export default function HomePage() {
       });
       if (res.ok) {
         showToastMsg('💾 Klasifikasi berhasil disimpan!');
+        window.alert('Klasifikasi berhasil disimpan!');
         fetchAllData();
       } else {
         const err = await res.json();
@@ -446,7 +447,6 @@ export default function HomePage() {
     const formData = new FormData();
     formData.append('file', uploadFile);
     formData.append('periode', uploadPeriode);
-    formData.append('nama_unit', uploadNamaUnit);
 
     try {
       const res = await fetch('/api/upload/excel', {
@@ -1430,17 +1430,6 @@ export default function HomePage() {
                       <option value="2026-07">Juli 2026</option>
                       <option value="2026-05">Mei 2026</option>
                     </select>
-                  </div>
-                  <div className="field" style={{ flex: 1, minWidth: 200 }}>
-                    <label>Nama Unit</label>
-                    <input
-                      type="text"
-                      placeholder="mis. Unit Bandung"
-                      value={uploadNamaUnit}
-                      onChange={(e) => setUploadNamaUnit(e.target.value)}
-                      required
-                      style={{ padding: 6, border: '1px solid #ccd5e0', borderRadius: 6, background: '#fff', width: '100%' }}
-                    />
                   </div>
                   <div className="field" style={{ flex: 1, minWidth: 240 }}>
                     <label>Pilih File Excel (.xlsx / .csv)</label>

@@ -6,18 +6,23 @@ import { RowDataPacket } from 'mysql2/promise';
 export async function GET() {
   try {
     const pool = getPool();
-    const [rows] = await pool.query<RowDataPacket[]>("SELECT * FROM score_thresholds LIMIT 1");
-    if (rows.length === 0) {
-      return NextResponse.json({ sangat_tinggi: 90, tinggi: 75, sedang: 60, eligible_insentif: 60 });
-    }
-    return NextResponse.json(rows[0]);
+    const [rows] = await pool.query<RowDataPacket[]>("SELECT * FROM score_thresholds");
+    
+    const result: any = { sangat_tinggi: 90, tinggi: 75, sedang: 60, eligible_insentif: 60 };
+    rows.forEach(r => {
+      if (r.description && result[r.description] !== undefined) {
+        result[r.description] = Number(r.nominal);
+      }
+    });
+
+    return NextResponse.json(result);
   } catch (err: any) {
     console.error('Error getThresholds:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
-export async function POST(req: NextRequest) {
+export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
     const { sangat_tinggi, tinggi, sedang, eligible_insentif } = body;
@@ -32,11 +37,27 @@ export async function POST(req: NextRequest) {
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
-      await connection.query("DELETE FROM score_thresholds");
-      await connection.query(
-        "INSERT INTO score_thresholds (sangat_tinggi, tinggi, sedang, eligible_insentif) VALUES (?, ?, ?, ?)",
-        [sangat_tinggi, tinggi, sedang, eligible_insentif]
-      );
+
+      const thresholds = [
+        { description: 'sangat_tinggi', nominal: sangat_tinggi },
+        { description: 'tinggi', nominal: tinggi },
+        { description: 'sedang', nominal: sedang },
+        { description: 'eligible_insentif', nominal: eligible_insentif }
+      ];
+
+      for (const t of thresholds) {
+        const [res]: any = await connection.query(
+          "UPDATE score_thresholds SET nominal = ?, updated_at = NOW() WHERE description = ?",
+          [t.nominal, t.description]
+        );
+        if (res.affectedRows === 0) {
+           await connection.query(
+             "INSERT INTO score_thresholds (description, nominal, updated_at) VALUES (?, ?, NOW())",
+             [t.description, t.nominal]
+           );
+        }
+      }
+
       await connection.commit();
       await recomputeScores(pool);
       return NextResponse.json({ success: true, message: 'Threshold berhasil diperbarui dan kategori AO telah dihitung ulang.' });

@@ -11,25 +11,22 @@ export async function recomputeScores(dbPool: Pool): Promise<void> {
     const w_fr = Number(w.w_fr) / 100;
     const w_fp = Number(w.w_fp) / 100;
 
-    // 2. Ambil thresholds aktif
-    const [tRows] = await connection.query<RowDataPacket[]>("SELECT * FROM score_thresholds LIMIT 1");
-    const t = tRows[0] || { sangat_tinggi: 90, tinggi: 75, sedang: 60 };
-    const st_limit = Number(t.sangat_tinggi);
-    const t_limit = Number(t.tinggi);
-    const s_limit = Number(t.sedang);
+
 
     // 3. Ambil semua baris performa (semua periode)
     const [perfRows] = await connection.query<RowDataPacket[]>(`
-      SELECT id, nilai_uk_s1, nilai_uk_sl, nilai_pencapaian_lar_baru, nilai_hadir_bayar_full_payment 
+      SELECT id, pencapaian_uk_s1, pencapaian_uk_sl, pencapaian_lar_baru, pencapaian_hadir_bayar_full_payment 
       FROM ao_kpi_performances
     `);
     
     await connection.beginTransaction();
     for (const row of perfRows) {
-      const score = (Number(row.nilai_uk_s1) * w_si) + 
-                    (Number(row.nilai_uk_sl) * w_sl) + 
-                    (Number(row.nilai_pencapaian_lar_baru) * w_fr) + 
-                    (Number(row.nilai_hadir_bayar_full_payment) * w_fp);
+      const si = Math.min(120, Math.max(0, Number(row.pencapaian_uk_s1) || 0));
+      const sl = Math.min(120, Math.max(0, Number(row.pencapaian_uk_sl) || 0));
+      const fr = Math.min(120, Math.max(0, Number(row.pencapaian_lar_baru) || 0));
+      const fp = Math.min(120, Math.max(0, Number(row.pencapaian_hadir_bayar_full_payment) || 0));
+
+      const score = (si * w_si) + (sl * w_sl) + (fr * w_fr) + (fp * w_fp);
       const roundedScore = Math.round(score * 100) / 100;
 
       await connection.query(

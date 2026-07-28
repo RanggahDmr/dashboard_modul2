@@ -4,8 +4,7 @@ import { AoKpiExcelRow } from '@/types/ao-kpi';
 
 export async function processAoKpiExcel(
   buffer: Buffer,
-  periode: string,
-  nama_unit: string
+  periode: string
 ): Promise<{ success: boolean; message: string; rowsImported: number; error?: string }> {
   try {
     const workbook = xlsx.read(buffer, { type: 'buffer' });
@@ -52,7 +51,7 @@ export async function processAoKpiExcel(
 
         return {
           periode,
-          nama_unit,
+          nama_unit: parseString((row as any).nama_unit) || parseString((row as any).Nama_Unit) || parseString((row as any).NamaUnit) || parseString((row as any)['Nama Unit']) || 'Unknown',
           tanggal_tarik: parseDate(row.TanggalTarik),
           cabang_id: parseString(row.CabangId),
           ao_id: parseString(row.AOId),
@@ -103,14 +102,19 @@ export async function processAoKpiExcel(
 
     // Insert to DB using batches within transaction
     const BATCH_SIZE = 1500;
+    const uniqueUnits = [...new Set(dataToInsert.map(r => r.nama_unit).filter(Boolean))];
 
     await prisma.$transaction(async (tx: any) => {
-      await tx.aoKpiPerformance.deleteMany({
-        where: {
-          periode,
-          nama_unit
-        }
-      });
+      if (uniqueUnits.length > 0) {
+        await tx.aoKpiPerformance.deleteMany({
+          where: {
+            periode,
+            nama_unit: {
+              in: uniqueUnits
+            }
+          }
+        });
+      }
 
       for (let i = 0; i < dataToInsert.length; i += BATCH_SIZE) {
         const batch = dataToInsert.slice(i, i + BATCH_SIZE);

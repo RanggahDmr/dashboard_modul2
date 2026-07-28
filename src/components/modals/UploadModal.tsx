@@ -13,7 +13,6 @@ interface UploadModalProps {
 export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [periode, setPeriode] = useState('2026-06');
-  const [namaUnit, setNamaUnit] = useState('Unit Bandung');
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [logs, setLogs] = useState<UploadLog[]>([]);
@@ -62,7 +61,6 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
     const formData = new FormData();
     formData.append('file', file);
     formData.append('periode', periode);
-    formData.append('nama_unit', namaUnit);
 
     try {
       const res = await fetch('/api/upload/excel', {
@@ -132,7 +130,7 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
 
           {/* Upload Form */}
           <form onSubmit={handleUpload} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
                   Periode Laporan
@@ -141,19 +139,6 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
                   type="month"
                   value={periode}
                   onChange={(e) => setPeriode(e.target.value)}
-                  required
-                  className="w-full bg-slate-800/80 text-white font-semibold rounded-xl px-4 py-2.5 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
-                  Nama Unit
-                </label>
-                <input
-                  type="text"
-                  value={namaUnit}
-                  onChange={(e) => setNamaUnit(e.target.value)}
                   required
                   className="w-full bg-slate-800/80 text-white font-semibold rounded-xl px-4 py-2.5 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-sm"
                 />

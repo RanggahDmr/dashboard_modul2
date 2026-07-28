@@ -11,13 +11,11 @@ export async function POST(req: NextRequest) {
     // Parse form data to object for validation
     const file = formData.get('file');
     const periode = formData.get('periode');
-    const nama_unit = formData.get('nama_unit');
 
     // Validation
     const validationResult = aoKpiUploadSchema.safeParse({
       file,
       periode,
-      nama_unit,
     });
 
     if (!validationResult.success) {
@@ -44,14 +42,13 @@ export async function POST(req: NextRequest) {
     const arrayBuffer = await validFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    const result = await processAoKpiExcel(buffer, validData.periode, validData.nama_unit);
+    const result = await processAoKpiExcel(buffer, validData.periode);
 
     if (result.success) {
       return NextResponse.json({
         success: true,
         message: result.message,
         periode: validData.periode,
-        nama_unit: validData.nama_unit,
         rowsImported: result.rowsImported,
       });
     } else {

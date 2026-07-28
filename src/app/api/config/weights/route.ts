@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
       await connection.beginTransaction();
       await connection.query("DELETE FROM kpi_weights WHERE periode = 'ALL'");
       await connection.query(
-        "INSERT INTO kpi_weights (periode, w_si, w_sl, w_fr, w_fp) VALUES ('ALL', ?, ?, ?, ?)",
+        "INSERT INTO kpi_weights (periode, w_si, w_sl, w_fr, w_fp, updated_at) VALUES ('ALL', ?, ?, ?, ?, NOW())",
         [w_si, w_sl, w_fr, w_fp]
       );
       await connection.commit();
