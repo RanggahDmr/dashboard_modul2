@@ -49,12 +49,9 @@ export async function POST(req: NextRequest) {
     const minRp = Number(minInsentif) || 0;
     const maxRp = maxInsentif ? Number(maxInsentif) : Infinity;
     const budgetRp = Number(budget) || 0;
-    
-    // Allocate budget proportionally based on eligible AOs vs total AOs
-    const allocatedBudget = totalAO > 0 ? budgetRp * (eligibleAO.length / totalAO) : 0;
 
     eligibleAO.forEach(r => {
-      let calc = totalScoreEligible > 0 ? (Number(r.score_akhir) / totalScoreEligible) * allocatedBudget : 0;
+      let calc = totalScoreEligible > 0 ? (Number(r.score_akhir) / totalScoreEligible) * budgetRp : 0;
       if (calc < minRp) calc = minRp;
       if (calc > maxRp) calc = maxRp;
       r.insentif = Math.round(calc);
